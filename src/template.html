@@ -256,6 +256,41 @@ li.task.prio.wip{animation:wipglow 3.2s ease-in-out infinite}
 body.calm .dave-hero .shroom,body.calm .dave-hero .lamp,body.calm li.task.prio{animation:none}
 body.calm .dave-hero .lamp{opacity:.6}
 @media (prefers-reduced-motion:reduce){.dave-hero .shroom,.dave-hero .lamp,li.task.prio,.ring svg.justlit{animation:none!important}.ffly{display:none}}
+/* Projects: meeting prep */
+.pj-hero{background:linear-gradient(160deg,rgba(255,252,247,.96),rgba(226,246,236,.9) 55%,rgba(236,227,255,.9))}
+.pj-jump{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.pj-jump button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;font-size:.8rem;font-weight:700;color:var(--plum2)}
+.pj-jump button:hover{background:var(--lav2)}
+.pj-jump button b{color:var(--plum);margin-right:4px}
+.pj-notes{margin:10px 0 0;padding-left:18px;font-size:.9rem;color:#8a3a5a}
+.pjcard{position:relative;scroll-margin-top:12px}
+.pjcard.now{box-shadow:0 0 0 2px rgba(201,166,245,.8),var(--shadow)}
+.pjhead{display:flex;gap:12px;align-items:flex-start}
+.pjtime{flex:none;min-width:84px;text-align:center;border-radius:16px;padding:8px 8px;background:linear-gradient(135deg,#ffe3ec,#ece3ff);color:var(--plum);font:700 1rem/1.15 var(--f-head)}
+.pjtime span{display:block;font:700 .72rem var(--f-body);color:var(--soft);margin-top:2px}
+.pjhead h3{margin:0;font:700 1.14rem/1.3 var(--f-head);color:var(--plum)}
+.pjhead .chips{margin-top:6px}
+.pjwho{font-size:.85rem;color:var(--soft);margin-top:6px}
+.pjnote{margin:10px 0 0;padding:8px 12px;border-radius:14px;background:linear-gradient(120deg,#fff1cf,#ffe0ea);color:#7a3a52;font-size:.9rem;font-weight:600}
+.pjsec{margin-top:14px}
+.pjsec h4{display:inline-block;margin:0 0 4px;font:800 .74rem var(--f-body);letter-spacing:.07em;text-transform:uppercase;padding:3px 10px;border-radius:999px;background:var(--oc,#f3ecff);color:var(--ot,#5a3a8a)}
+.pjsec h4 span{text-transform:none;letter-spacing:0;font-weight:600;margin-left:6px;opacity:.85}
+.pjsec.st{--oc:#e2f6ec;--ot:#2f6b52}.pjsec.td{--oc:#ffe0ea;--ot:#a4305d}.pjsec.wt{--oc:#fff1cf;--ot:#86600a}.pjsec.ag{--oc:#ece3ff;--ot:#5a3a8a}
+.pjsec p{margin:4px 0}
+.pjsec ul,.pjsec ol{margin:4px 0 0;padding-left:20px}
+.pjsec li{margin:4px 0}
+.pjsec ul.plain{list-style:none;padding-left:0}
+.pjsec ul.plain li{padding:6px 4px;border-top:1px dashed rgba(126,96,160,.18)}
+.pjsec ul.plain li:first-child{border-top:0}
+.pjsec li .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+.pjsec li.done .t{text-decoration:line-through;text-decoration-color:rgba(224,120,159,.6);color:#9a89ab}
+.pjsec li a.go{font-size:.8rem;margin-left:4px}
+.chip.src{background:#ddeeff;color:#2c5a8a}
+.chip.flag{background:#ffe0ea;color:#a4305d}
+.chip.okc{background:var(--mint2);color:#2f6b52}
+.pjsrc{margin-top:12px;display:flex;flex-direction:column;gap:3px}
+.pjsrc a{font-size:.8rem;word-break:break-word}
+@media (max-width:520px){.pjhead{flex-direction:column;gap:8px}.pjtime{display:flex;gap:8px;align-items:baseline;min-width:0;padding:5px 12px}.pjtime span{margin:0}}
 .donebox>details>summary{font:700 1.05rem var(--f-head);color:var(--plum);list-style:none;width:auto;display:flex;align-items:center;gap:10px}
 .donebox>details>summary::-webkit-details-marker{display:none}
 .standup{text-align:center;padding:30px 22px}
@@ -297,6 +332,7 @@ footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
    <p class="greet" id="greet"></p>
    <nav class="tabs" role="tablist">
     <button role="tab" data-tab="daily">Daily To Do<span class="n" id="nDaily"></span></button>
+    <button role="tab" data-tab="projects">Projects<span class="n" id="nProj"></span></button>
     <button role="tab" data-tab="marketing">Marketing<span class="n" id="nMkt"></span></button>
     <button role="tab" data-tab="dave">Talk with Dave<span class="n" id="nDave"></span></button>
     <button role="tab" data-tab="standup">Standup</button>
@@ -305,6 +341,7 @@ footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
  </header>
  <main>
   <section class="panel" id="tab-daily"></section>
+  <section class="panel" id="tab-projects"></section>
   <section class="panel" id="tab-marketing"></section>
   <section class="panel" id="tab-dave"></section>
   <section class="panel" id="tab-standup"></section>
@@ -699,14 +736,53 @@ function renderStandup(S){
  el.innerHTML='<div class="card standup sent"><h2>Weekly Standup</h2><p class="sub">Sent '+fmtDate(S.sent_at)+(S.subject?', "'+esc(S.subject)+'"':'')+'</p>'+(S.summary||[]).map(function(x){return '<p>'+esc(x)+'</p>'}).join("")+'</div>';
 }
 
+/* ---------- Projects (meeting prep) ---------- */
+function etDate(ts){var d=ts?new Date(ts):new Date();return d.toLocaleDateString("en-CA",{timeZone:"America/New_York"})}
+function etTime(iso,ampm){var d=new Date(iso);if(isNaN(d))return "";var s=d.toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"});return ampm?s:s.replace(/\s?[AP]M$/,"")}
+var PJ=null;
+function renderProjects(D){
+ if(D)PJ=D;D=PJ||{cards:[]};var el=$("#tab-projects"),C=D.cards||[];
+ var dt=load(DKEY),mt=load(MKEY),vt=load(VKEY);
+ function isDone(x){if(!x)return false;if(x.src==="daily")return !!dt[x.id];if(x.src==="marketing")return mt.hasOwnProperty(x.id)?mt[x.id]===1:!!x.done;if(x.src==="dave")return !!vt[x.id];return !!x.done}
+ var SRC={daily:"Daily",marketing:"Marketing",dave:"Talk with Dave"};
+ var today=etDate(),now=Date.now(),isToday=D.date===today,nowId=null;
+ if(isToday){for(var i=0;i<C.length;i++){if(new Date(C[i].end).getTime()>now){nowId=C[i].id;break}}}
+ var openT=0,waitN=0;C.forEach(function(c){openT+=(c.todos||[]).filter(function(t){return !isDone(t)}).length;waitN+=(c.waiting||[]).filter(function(w){return !isDone(w.ref)}).length});
+ var when=D.date?(D.date===today?"today":(D.date>today?"an upcoming day":"a past day")):"";
+ var h='<div class="card pj-hero"><h2>Projects</h2><p class="sub">Meeting prep for '+esc(D.date_label||D.date||"")+(when?' ('+when+')':'')+'. One card per project meeting in time order, with where it stands, your open to dos, what you are waiting on, and a suggested agenda.</p>'+
+  '<div class="strip"><div><b>'+C.length+'</b><span>Meetings</span></div><div><b>'+openT+'</b><span>Open to dos</span></div><div><b>'+waitN+'</b><span>Waiting on others</span></div></div>'+
+  ((D.notes||[]).length?'<ul class="pj-notes">'+D.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join("")+'</ul>':'')+
+  (C.length?'<div class="pj-jump">'+C.map(function(c){return '<button type="button" data-jump="'+esc(c.id)+'"><b>'+esc(etTime(c.start,true))+'</b>'+esc(c.project||c.title)+'</button>'}).join("")+'</div>':'')+
+  '<div class="srcline">Checked: '+esc(D.sources_checked||"")+(D.generated_at?' Updated '+fmtDate(D.generated_at)+'.':'')+((D.skipped||[]).length?' Skipped (not project meetings): '+esc(D.skipped.map(function(s){return typeof s==="string"?s:s.title}).join(", "))+'.':'')+'</div></div>';
+ if(!C.length)h+='<div class="card"><p class="note">No project meetings on the calendar for this day.</p></div>';
+ C.forEach(function(c){
+  var T=(c.todos||[]).slice().sort(function(a,b){return (isDone(a)?1:0)-(isDone(b)?1:0)}),open=T.filter(function(t){return !isDone(t)}).length;
+  function tdHtml(t){var d=isDone(t);return '<li class="'+(d?'done':'')+'"><span class="t">'+esc(t.text)+'</span><div class="meta"><span class="chip src">'+esc(SRC[t.src]||t.src||"")+'</span><span class="chip">Owner: '+esc(t.owner||"")+'</span>'+(t.due?'<span class="chip due">Due '+esc(t.due)+'</span>':'')+(d?'<span class="chip okc">Done</span>':'')+'</div></li>'}
+  var first=T.slice(0,6),rest=T.slice(6);
+  var W=c.waiting||[];
+  h+='<div class="card pjcard'+(c.id===nowId?' now':'')+'" id="pj-'+esc(c.id)+'"><div class="pjhead"><div class="pjtime">'+esc(etTime(c.start))+'<span>to '+esc(etTime(c.end,true))+' ET</span></div><div><h3>'+esc(c.title)+'</h3>'+
+   '<div class="chips"><span class="chip proj">'+esc(c.project||"")+'</span>'+(c.id===nowId?'<span class="chip wait">Up next</span>':'')+(c.flags||[]).map(function(f){return '<span class="chip flag">'+esc(f)+'</span>'}).join("")+'</div>'+
+   '<div class="pjwho">With '+esc((c.attendees||[]).join(", "))+(c.organizer&&c.organizer!=="Rachel Hejduk"?'. Organizer: '+esc(c.organizer):'')+(safeUrl(c.calendar_url)?'. <a href="'+esc(c.calendar_url)+'" target="_blank" rel="noopener">Calendar</a>':'')+'</div></div></div>'+
+   (c.note?'<div class="pjnote">'+esc(c.note)+'</div>':'')+
+   '<div class="pjsec st"><h4>Status</h4>'+(c.status||[]).map(function(p){return '<p>'+esc(p)+'</p>'}).join("")+'</div>'+
+   '<div class="pjsec td"><h4>Open to dos<span>'+open+' open</span></h4>'+(T.length?'<ul class="plain">'+first.map(tdHtml).join("")+'</ul>'+(rest.length?'<details><summary>'+rest.length+' more</summary><ul class="plain">'+rest.map(tdHtml).join("")+'</ul></details>':''):'<p class="note" style="margin-left:0">Nothing on your lists for this one.</p>')+'</div>'+
+   '<div class="pjsec wt"><h4>Outstanding and waiting on</h4>'+(W.length?'<ul class="plain">'+W.map(function(w){var d=isDone(w.ref),u=safeUrl(w.link);return '<li class="'+(d?'done':'')+'"><span class="t">'+esc(w.text)+'</span>'+(u?' <a class="go" href="'+esc(u)+'" target="_blank" rel="noopener">Open</a>':'')+'<div class="meta">'+(w.who?'<span class="chip wait">'+esc(w.who)+'</span>':'')+(w.ref?'<span class="chip src">'+esc(SRC[w.ref.src]||"")+'</span>':'')+(d?'<span class="chip okc">Settled</span>':'')+'</div></li>'}).join("")+'</ul>':'<p class="note" style="margin-left:0">Nothing outstanding found.</p>')+'</div>'+
+   '<div class="pjsec ag"><h4>Suggested agenda</h4><ol>'+(c.agenda||[]).map(function(a){return '<li>'+esc(a)+'</li>'}).join("")+'</ol></div>'+
+   ((c.sources||[]).length?'<details class="pjsrc"><summary>Sources</summary>'+c.sources.map(function(s){var u=safeUrl(s.url);return u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(s.label)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("")+'</details>':'')+
+   '</div>';
+ });
+ el.innerHTML=h;$("#nProj").textContent=C.length||"";
+}
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-jump]");if(!b)return;var t=document.getElementById("pj-"+b.getAttribute("data-jump"));if(t)t.scrollIntoView({behavior:reduced()?"auto":"smooth",block:"start"})});
+
 function render(data){
- renderDaily(data.daily);renderMarketing(data.marketing);renderDave(data.dave);renderStandup(data.standup);
+ renderDaily(data.daily);renderProjects(data.projects);renderMarketing(data.marketing);renderDave(data.dave);renderStandup(data.standup);
  $("#foot").textContent="Built "+fmtDate(data.built_at)+". Checkmarks are saved on this device.";
  var tabs=$$("nav.tabs button");
- function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","marketing","dave","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);
+ function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();
   var k=name==="daily"?"daily":name==="marketing"?"mkt":null;if(k&&vineMem[k]!=null){var v=vineMem[k];vineMem[k]=0;growVine($("#tab-"+name),k,v)}}
  tabs.forEach(function(b){b.addEventListener("click",function(){show(b.getAttribute("data-tab"));history.replaceState(null,"","#"+b.getAttribute("data-tab"))})});
- var h=location.hash.slice(1);var TABS=["daily","marketing","dave","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));
+ var h=location.hash.slice(1);var TABS=["daily","projects","marketing","dave","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));
 }
 })();
 </script>

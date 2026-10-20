@@ -17,6 +17,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const daily = readJson("daily.json"), marketing = readJson("marketing.json");
   const dave = fs.existsSync(path.join(ROOT, "data/dave.json")) ? readJson("dave.json") : { meta: {}, tasks: [] };
   const standup = fs.existsSync(path.join(ROOT, "data/standup.json")) ? readJson("standup.json") : { status: "pending" };
+  const projects = fs.existsSync(path.join(ROOT, "data/projects.json")) ? readJson("projects.json") : { cards: [] };
 
   // sanity checks: stable unique ids
   const kebab = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -28,6 +29,28 @@ const b64 = (u) => Buffer.from(u).toString("base64");
     if (bad.length) throw new Error(name + ": non kebab-case ids: " + bad.join(", "));
   }
 
+  // Projects tab: resolve todo_refs / waiting refs against the live daily, marketing and dave lists at build time
+  const dIdx = Object.fromEntries(daily.tasks.map((t) => [t.task_id, t]));
+  const mIdx = {}; marketing.projects.forEach((p) => p.tasks.forEach((t) => { mIdx[t.id] = { t, p } }));
+  const vIdx = Object.fromEntries(dave.tasks.map((t) => [t.task_id, t]));
+  const missing = [];
+  function resolve(r) {
+    if (r.src === "daily" && dIdx[r.id]) { const t = dIdx[r.id]; return { src: "daily", id: t.task_id, text: t.action, owner: "Rachel", with: t.collaborators || [], due: t.due_date || "", project: t.project }; }
+    if (r.src === "marketing" && mIdx[r.id]) { const { t, p } = mIdx[r.id]; return { src: "marketing", id: t.id, text: t.t, owner: t.o || "PMs", with: t.w ? [t.w] : [], due: "", project: p.name, done: !!t.d }; }
+    if (r.src === "dave" && vIdx[r.id]) { const t = vIdx[r.id]; return { src: "dave", id: t.task_id, text: t.action, owner: "Rachel", with: ["Dave"], due: t.due_date || "", project: t.project }; }
+    missing.push(r.src + ":" + r.id); return null;
+  }
+  const pIds = (projects.cards || []).map((c) => c.id);
+  if (new Set(pIds).size !== pIds.length) throw new Error("projects: duplicate card ids");
+  const pBad = pIds.filter((i) => !kebab.test(i));
+  if (pBad.length) throw new Error("projects: non kebab-case card ids: " + pBad.join(", "));
+  (projects.cards || []).forEach((c) => {
+    c.todos = (c.todo_refs || []).map(resolve).filter(Boolean).concat(c.extra_todos || []);
+    (c.waiting || []).forEach((w) => { if (w.ref) { const r = resolve(w.ref); if (r) w.ref = { src: r.src, id: r.id }; else delete w.ref; } });
+    delete c.todo_refs;
+  });
+  if (missing.length) console.warn("projects: " + missing.length + " refs not found and dropped: " + missing.join(", "));
+
   // stable salt so "remember on this device" keeps working across rebuilds (salt is not secret)
   const saltFile = path.join(ROOT, "salt.txt");
   if (!fs.existsSync(saltFile)) fs.writeFileSync(saltFile, b64(webcrypto.getRandomValues(new Uint8Array(16))) + "\n");
@@ -36,7 +59,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
 
   const base = await subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
   const key = await subtle.deriveKey({ name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
-  const payload = JSON.stringify({ daily, marketing, dave, standup, built_at: new Date().toISOString() });
+  const payload = JSON.stringify({ daily, marketing, dave, standup, projects, built_at: new Date().toISOString() });
   const ct = await subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(payload));
 
   const blob = JSON.stringify({ v: 1, iter: ITER, salt: b64(salt), iv: b64(iv), ct: b64(new Uint8Array(ct)) });
@@ -45,12 +68,12 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const html = tpl.replace("/*__PAYLOAD__*/", () => blob);
 
   // leak guard: no task text, ids, or the password may appear in the output
-  const probes = [pw, ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id])])]
+  const probes = [pw, ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)])]
     .filter((s) => typeof s === "string" && s.length >= 12);
   const leaks = probes.filter((s) => html.includes(s));
   if (leaks.length) throw new Error("plaintext leak guard tripped (" + leaks.length + " strings). Not writing index.html.");
 
   fs.writeFileSync(path.join(ROOT, "index.html"), html);
   const mDone = marketing.projects.flatMap((p) => p.tasks).filter((t) => t.d).length;
-  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), dave ${vIds.length} tasks, ${html.length} bytes`);
+  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, ${html.length} bytes`);
 })().catch((e) => { console.error("BUILD FAILED: " + e.message); process.exit(1); });
