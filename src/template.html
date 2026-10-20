@@ -211,8 +211,8 @@ summary{font-size:.82rem;color:#8a4fc7;cursor:pointer;font-weight:700;width:max-
 .lanes b{display:block;font:700 1rem var(--f-head)}
 .pcard.complete{box-shadow:0 0 0 2px rgba(255,215,106,.7),var(--shadow)}
 body.hide-done li.task.done{display:none}
-.donebox summary{font:700 1.05rem var(--f-head);color:var(--plum);list-style:none;width:auto;display:flex;align-items:center;gap:10px}
-.donebox summary::-webkit-details-marker{display:none}
+.donebox>details>summary{font:700 1.05rem var(--f-head);color:var(--plum);list-style:none;width:auto;display:flex;align-items:center;gap:10px}
+.donebox>details>summary::-webkit-details-marker{display:none}
 .standup{text-align:center;padding:30px 22px}
 .standup .moon{width:70px;height:70px;margin:0 auto 10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fffaeb,#ffe7a3 60%,#e9b949);box-shadow:0 0 30px rgba(255,215,106,.6)}
 .standup p{margin:8px auto;max-width:52ch}
@@ -407,7 +407,7 @@ function vineHtml(key){
  for(var i=1;i<=9;i++){var f=i*10,pt=V[f],side=i%2?-1:1;leaves+='<g class="leaf off" data-at="'+f+'" transform="translate('+pt.x.toFixed(1)+' '+pt.y.toFixed(1)+') rotate('+(pt.ang+side*55).toFixed(1)+')"><ellipse cx="9" cy="0" rx="9" ry="4" fill="'+(i%3?"#8fd3b3":"#a9dfc3")+'" stroke="#5f9e80" stroke-width=".6"/></g>'}
  var e=V[100];
  return '<div class="vinewrap"><svg class="vine" data-key="'+key+'" viewBox="0 -6 600 76" role="img" aria-label="progress vine"><path class="track" d="'+VD+'"/><path class="grow" d="'+VD+'" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100"/>'+leaves+
-  '<g class="bud" transform="translate(8 40)"><g>'+flowerSvg(8,"#f7a8c4","#fff")+'</g></g><g transform="translate('+e.x.toFixed(1)+' '+e.y.toFixed(1)+')"><g class="bloom off">'+flowerSvg(17,"#f29bbd","#ffe3ec")+'</g></g></svg>';
+  '<g class="bud" transform="translate(8 40)"><g>'+flowerSvg(8,"#f7a8c4","#fff")+'</g></g><g transform="translate('+e.x.toFixed(1)+' '+e.y.toFixed(1)+')"><g class="bloom off">'+flowerSvg(17,"#f29bbd","#ffe3ec")+'</g></g></svg></div>';
 }
 function growVine(root,key,pct){
  var svg=root.querySelector('svg.vine[data-key="'+key+'"]');if(!svg)return;var V=vinePts(),from=vineMem[key]==null?0:vineMem[key];vineMem[key]=pct;
