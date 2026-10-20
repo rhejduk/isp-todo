@@ -178,7 +178,7 @@ function renderDaily(D){
  function taskHtml(t){
   var on=!!ticks[t.task_id];
   var chips='<span class="chip">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
-  var srcs=(t.sources||[]).map(function(s){var kind=s.source_type==="gmail"?"Email":s.source_type==="fireflies"?"Fireflies":s.source_type==="slack"?"Slack":esc(s.source_type);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
+  var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
   return '<li class="task'+(on?' done':'')+'" data-id="'+esc(t.task_id)+'"><input type="checkbox" aria-label="Mark done"'+(on?' checked':'')+'><div class="body"><span class="what">'+esc(t.action)+'</span>'+
    '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div></li>';
  }
