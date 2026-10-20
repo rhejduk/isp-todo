@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>ISP To Do</title>
+<style>
+:root{--navy:#061433;--navy2:#0d2a66;--sky:#2f7bff;--teal:#00b37a;--bg:#f3f6fb;--card:#fff;--ink:#14213d;--soft:#5b6b88;--line:#dde4f0;--hi:#d64545;--med:#c98a00;--low:#4a8f5a;--done:#9aa6bb}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif}
+a{color:var(--sky)}
+button{font:inherit;cursor:pointer}
+.hidden{display:none!important}
+/* lock screen */
+#lock{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,var(--navy),var(--navy2))}
+#lock form{background:#fff;border-radius:16px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+#lock h1{margin:0 0 4px;font-size:1.35rem}
+#lock p{margin:0 0 18px;color:var(--soft);font-size:.92rem}
+#lock input[type=password]{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:1rem}
+#lock label.rem{display:flex;gap:8px;align-items:center;margin:12px 0 16px;font-size:.92rem;color:var(--soft)}
+#lock button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--sky);color:#fff;font-weight:700;font-size:1rem}
+#lock button:disabled{opacity:.6}
+#lockErr{color:var(--hi);font-size:.9rem;min-height:1.3em;margin-top:10px}
+/* app */
+header.hero{background:radial-gradient(ellipse 60% 120% at 90% 0%,rgba(0,179,122,.25),transparent 60%),linear-gradient(160deg,var(--navy),var(--navy2));color:#fff;padding:22px 16px 0}
+.inner{max-width:900px;margin:0 auto}
+.brand{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:#a9bfe3;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.brand button{background:transparent;border:1px solid rgba(255,255,255,.35);color:#dfe8f8;border-radius:8px;padding:3px 10px;font-size:.72rem;letter-spacing:.06em}
+.hero h1{margin:6px 0 14px;font-size:clamp(1.5rem,5vw,2.1rem);line-height:1.15}
+nav.tabs{display:flex;gap:4px;overflow-x:auto}
+nav.tabs button{flex:none;border:0;background:rgba(255,255,255,.08);color:#cfdcf3;padding:10px 16px;border-radius:12px 12px 0 0;font-weight:600}
+nav.tabs button[aria-selected=true]{background:var(--bg);color:var(--ink)}
+nav.tabs .n{display:inline-block;margin-left:6px;font-size:.75rem;background:rgba(47,123,255,.18);border-radius:999px;padding:0 7px}
+main{max-width:900px;margin:0 auto;padding:18px 14px 60px}
+.panel h2{margin:0;font-size:1.15rem}
+.sub{color:var(--soft);margin:4px 0 0;font-size:.92rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 8px rgba(20,33,61,.04)}
+.prog{margin:12px 0 4px}
+.bar{height:10px;background:#e3e9f4;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--sky),var(--teal));border-radius:99px;transition:width .3s}
+.prog .lbl{font-size:.88rem;color:var(--soft);margin-top:6px}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:12px 0 0}
+.strip div{background:#f6f9fe;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.strip b{display:block;font-size:1.35rem;line-height:1.2}
+.strip span{font-size:.78rem;color:var(--soft)}
+.srcline{font-size:.82rem;color:var(--soft);margin-top:12px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.tools button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 12px;font-size:.85rem;color:var(--ink)}
+.xcheck{border-left:4px solid var(--teal)}
+.xcheck h3{margin:0 0 4px;font-size:.98rem}
+.xcheck ul{margin:6px 0 0;padding-left:18px}
+.xcheck .empty{color:var(--soft);font-size:.9rem;margin:0}
+.sechead{display:flex;align-items:baseline;gap:10px;margin:22px 0 2px}
+.sechead h2{font-size:1.1rem}
+.pill{font-size:.75rem;background:#e8f0ff;color:var(--navy2);border-radius:999px;padding:1px 9px;font-weight:600;white-space:nowrap}
+.note{color:var(--soft);font-size:.86rem;margin:2px 0 6px}
+ul.tasks{list-style:none;margin:0;padding:0}
+li.task{display:flex;gap:10px;padding:10px 2px;border-top:1px solid var(--line)}
+li.task:first-child{border-top:0}
+li.task input{flex:none;width:20px;height:20px;margin-top:2px;accent-color:var(--teal)}
+li.task .body{flex:1;min-width:0}
+li.task .what{font-weight:600}
+li.task.done .what{text-decoration:line-through;color:var(--done)}
+li.task .who{display:block;font-size:.84rem;color:var(--soft)}
+details{margin-top:4px}
+summary{font-size:.82rem;color:var(--sky);cursor:pointer}
+.ctx{font-size:.88rem;margin:6px 0}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:.74rem;border:1px solid var(--line);border-radius:999px;padding:1px 8px;background:#f8fafd}
+.chip.high{color:var(--hi);border-color:#f2c4c4}
+.chip.medium{color:var(--med);border-color:#f0dca8}
+.chip.low{color:var(--low);border-color:#c5e2cc}
+.srcs{margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.srcs a,.srcs span{font-size:.8rem;word-break:break-word}
+.srcs q{display:block;color:var(--soft);font-size:.8rem;font-style:italic;margin:1px 0 4px 10px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.pgrid .card{margin:0}
+.pcard h3{margin:0;font-size:1.05rem;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.badge{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;font-weight:700}
+.badge.ok{background:#e1f6ec;color:#0c7a50}
+.badge.maybe{background:#fff3d6;color:#8a6100}
+.badge.s5{background:#e6eeff;color:var(--navy2)}
+.why{font-size:.88rem;color:var(--soft);margin:6px 0 4px}
+.og h4{margin:12px 0 2px;font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--navy2)}
+.og h4 span{text-transform:none;letter-spacing:0;color:var(--soft);font-weight:400;margin-left:6px}
+.lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px}
+.lanes div{background:#f6f9fe;border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:.8rem;color:var(--soft)}
+.lanes b{display:block;color:var(--ink);font-size:.9rem}
+body.hide-done li.task.done{display:none}
+.standup p{margin:6px 0}
+footer{color:var(--soft);font-size:.78rem;text-align:center;margin-top:30px}
+</style>
+</head>
+<body>
+<div id="lock">
+ <form id="lockForm" autocomplete="on">
+  <h1>Rachel's To Do</h1>
+  <p>This page is private. Enter the password to open it.</p>
+  <input type="text" name="username" value="rachel" autocomplete="username" class="hidden" aria-hidden="true" tabindex="-1">
+  <input id="pw" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" required>
+  <label class="rem"><input id="remember" type="checkbox" checked> Remember on this device</label>
+  <button id="unlockBtn" type="submit">Open</button>
+  <div id="lockErr" role="alert"></div>
+ </form>
+</div>
+
+<div id="app" class="hidden">
+ <header class="hero">
+  <div class="inner">
+   <div class="brand"><span>Ideal Strategic Partners</span><button id="lockBtn" type="button" title="Forget the password on this device and lock">Lock</button></div>
+   <h1>Rachel's To Do</h1>
+   <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="daily">Daily To Do<span class="n" id="nDaily"></span></button>
+    <button role="tab" data-tab="marketing">Marketing<span class="n" id="nMkt"></span></button>
+    <button role="tab" data-tab="standup">Standup</button>
+   </nav>
+  </div>
+ </header>
+ <main>
+  <section class="panel" id="tab-daily"></section>
+  <section class="panel" id="tab-marketing"></section>
+  <section class="panel" id="tab-standup"></section>
+  <footer id="foot"></footer>
+ </main>
+</div>
+
+<script id="payload" type="application/json">/*__PAYLOAD__*/</script>
+<script>
+(function(){
+"use strict";
+var P=JSON.parse(document.getElementById("payload").textContent);
+var KEYSTORE="isp-todo-key";
+function b64d(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function b64e(buf){var u=new Uint8Array(buf),s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
+function derive(pw){return crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]).then(function(k){return crypto.subtle.deriveKey({name:"PBKDF2",salt:b64d(P.salt),iterations:P.iter,hash:"SHA-256"},k,{name:"AES-GCM",length:256},true,["decrypt"])})}
+function decrypt(key){return crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(P.iv)},key,b64d(P.ct)).then(function(pt){return JSON.parse(new TextDecoder().decode(pt))})}
+function remembered(){try{var r=JSON.parse(localStorage.getItem(KEYSTORE)||"null");if(r&&r.salt===P.salt&&r.k)return r.k}catch(e){}return null}
+function start(data){document.getElementById("lock").classList.add("hidden");document.getElementById("app").classList.remove("hidden");render(data)}
+var form=document.getElementById("lockForm"),err=document.getElementById("lockErr"),btn=document.getElementById("unlockBtn");
+form.addEventListener("submit",function(e){
+ e.preventDefault();err.textContent="";btn.disabled=true;btn.textContent="Opening...";
+ var key;
+ derive(document.getElementById("pw").value).then(function(k){key=k;return decrypt(k)}).then(function(data){
+  if(document.getElementById("remember").checked){crypto.subtle.exportKey("raw",key).then(function(raw){try{localStorage.setItem(KEYSTORE,JSON.stringify({salt:P.salt,k:b64e(raw)}))}catch(e){}})}
+  start(data);
+ }).catch(function(){err.textContent="That password didn't work. Try again.";btn.disabled=false;btn.textContent="Open"});
+});
+document.getElementById("lockBtn").addEventListener("click",function(){try{localStorage.removeItem(KEYSTORE)}catch(e){}location.reload()});
+var rk=remembered();
+if(rk){crypto.subtle.importKey("raw",b64d(rk),{name:"AES-GCM"},false,["decrypt"]).then(decrypt).then(start).catch(function(){try{localStorage.removeItem(KEYSTORE)}catch(e){}})}
+
+/* ---------- rendering ---------- */
+function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function safeUrl(u){return /^https?:\/\//i.test(u||"")?u:""}
+function load(k){try{return JSON.parse(localStorage.getItem(k)||"{}")||{}}catch(e){return {}}}
+function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function fmtDate(iso){if(!iso)return "";var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
+function xcheck(x){
+ var notes=(x&&x.notes)||[];
+ return '<div class="card xcheck"><h3>Cross-check with Claude</h3>'+(notes.length?
+  (x.updated_at?'<p class="note">Checked '+fmtDate(x.updated_at)+'</p>':'')+'<ul>'+notes.map(function(n){return '<li>'+esc(typeof n==="string"?n:n.text)+'</li>'}).join("")+'</ul>'
+  :'<p class="empty">Nothing here yet. Each refresh will compare this list with Claude\'s and note any differences here.</p>')+'</div>';
+}
+var hideDone=load("isp-todo-prefs").hideDone===true;
+function setHide(on){hideDone=on;document.body.classList.toggle("hide-done",on);var p=load("isp-todo-prefs");p.hideDone=on;store("isp-todo-prefs",p);document.querySelectorAll(".hideBtn").forEach(function(b){b.textContent=on?"Show finished":"Hide finished"})}
+
+/* Daily */
+var DKEY="isp-todo-daily-ticks";
+function renderDaily(D){
+ var ticks=load(DKEY),T=D.tasks,el=document.getElementById("tab-daily");
+ var SEC=[["top_priorities","Top priorities","Urgent, blocking, or deadline driven actions assigned to you."],
+  ["new_since_last_digest","New since last digest","New actions that showed up after the last list."],
+  ["follow_ups_and_waiting","Follow-ups and waiting","Follow-ups and next steps still waiting on you."],
+  ["by_project","By project","Everything else, grouped by project."]];
+ function taskHtml(t){
+  var on=!!ticks[t.task_id];
+  var chips='<span class="chip">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
+  var srcs=(t.sources||[]).map(function(s){var kind=s.source_type==="gmail"?"Email":s.source_type==="fireflies"?"Fireflies":s.source_type==="slack"?"Slack":esc(s.source_type);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
+  return '<li class="task'+(on?' done':'')+'" data-id="'+esc(t.task_id)+'"><input type="checkbox" aria-label="Mark done"'+(on?' checked':'')+'><div class="body"><span class="what">'+esc(t.action)+'</span>'+
+   '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div></li>';
+ }
+ function draw(){
+  var done=T.filter(function(t){return ticks[t.task_id]}).length,total=T.length,pct=total?Math.round(done/total*100):0;
+  var act=function(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length};
+  var projs={};T.filter(function(t){return t.section==="by_project"}).forEach(function(t){(projs[t.project]=projs[t.project]||[]).push(t)});
+  var pn=Object.keys(projs).sort(function(a,b){return a.localeCompare(b)});
+  var activeProj=pn.filter(function(n){return projs[n].some(function(t){return !ticks[t.task_id]})}).length;
+  var m=D.meta||{};
+  var h='<div class="card"><h2>Daily To Do</h2><p class="sub">Only tasks assigned to you, committed to by you, or waiting on you. List for '+esc(m.list_date_label||m.list_date)+'.</p>'+
+   '<div class="prog"><div class="bar"><i style="width:'+pct+'%"></i></div><div class="lbl">'+done+' of '+total+' done ('+pct+'%)</div></div>'+
+   '<div class="strip"><div><b>'+(total-done)+'</b><span>Active</span></div><div><b>'+act("top_priorities")+'</b><span>Top priorities</span></div><div><b>'+act("new_since_last_digest")+'</b><span>New since last digest</span></div><div><b>'+act("follow_ups_and_waiting")+'</b><span>Follow-ups</span></div><div><b>'+activeProj+'</b><span>Project groups</span></div></div>'+
+   '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
+   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>'+xcheck(D.crosscheck);
+  SEC.forEach(function(s){
+   var ts=T.filter(function(t){return t.section===s[0]});
+   h+='<div class="sechead"><h2>'+s[1]+'</h2><span class="pill">'+ts.filter(function(t){return !ticks[t.task_id]}).length+' open</span></div><p class="note">'+s[2]+'</p>';
+   if(s[0]==="by_project"){h+='<div class="pgrid">'+pn.map(function(n){return '<div class="card pcard"><h3>'+esc(n)+' <span class="pill">'+projs[n].length+'</span></h3><ul class="tasks">'+projs[n].map(taskHtml).join("")+'</ul></div>'}).join("")+'</div>'}
+   else h+='<div class="card"><ul class="tasks">'+(ts.length?ts.map(taskHtml).join(""):'<li class="note">Nothing here right now.</li>')+'</ul></div>';
+  });
+  el.innerHTML=h;document.getElementById("nDaily").textContent=total-done;setHide(hideDone);
+ }
+ el.addEventListener("change",function(e){var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id");if(e.target.checked)ticks[id]=1;else delete ticks[id];store(DKEY,ticks);draw()});
+ el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone)});
+ draw();
+}
+
+/* Marketing */
+var MKEY="isp-todo-mkt-ticks";
+function renderMarketing(M){
+ var ticks=load(MKEY),el=document.getElementById("tab-marketing");
+ var LANES=M.lanes||[["Rachel","Your own tasks"],["Curtis","Website"],["Gabriel","Meta and other ads"],["Adriana","Packaging and graphics"],["Ben","Everything else"],["PMs","PMs, founders and others"]];
+ var order={4:0,5:1,0:2};
+ var PR=M.projects.slice().sort(function(a,b){var s=(order[a.stage]==null?3:order[a.stage])-(order[b.stage]==null?3:order[b.stage]);return s||a.name.localeCompare(b.name)});
+ var SECS={4:["Stage 4","Production started, not yet selling."],5:["Stage 5","Selling now. Only FunL and Livin are tracked."],0:["Other","Not tied to a project yet."]};
+ function isDone(t){return ticks.hasOwnProperty(t.id)?ticks[t.id]===1:!!t.d}
+ function taskHtml(t){var on=isDone(t);return '<li class="task'+(on?' done':'')+'" data-id="'+esc(t.id)+'"><input type="checkbox" aria-label="Mark done"'+(on?' checked':'')+'><div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span></div></li>'}
+ function draw(){
+  var all=[];PR.forEach(function(p){all=all.concat(p.tasks)});
+  var done=all.filter(isDone).length,total=all.length,pct=total?Math.round(done/total*100):0,m=M.meta||{};
+  var h='<div class="card"><h2>Marketing Checklist</h2><p class="sub">Getting each product ready to launch. Stage 4 means production is running and nothing has sold yet (a preorder still counts as not sold). Stage 5 means it is selling.</p>'+
+   '<div class="lanes">'+LANES.filter(function(l){return l[0]!=="PMs"}).map(function(l){return '<div><b>'+esc(l[0])+'</b>'+esc(l[1])+'</div>'}).join("")+'</div>'+
+   '<div class="prog"><div class="bar"><i style="width:'+pct+'%"></i></div><div class="lbl">'+done+' of '+total+' tasks done ('+pct+'%)</div></div>'+
+   '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
+   '<div class="tools"><button type="button" class="hideBtn"></button><button type="button" class="clearBtn">Clear my ticks</button></div></div>'+xcheck(M.crosscheck);
+  var last=null;
+  PR.forEach(function(p){
+   if(p.stage!==last){last=p.stage;var sp=PR.filter(function(q){return q.stage===p.stage}),stT=[];sp.forEach(function(q){stT=stT.concat(q.tasks)});var sec=SECS[p.stage]||["Other",""];
+    h+='<div class="sechead"><h2>'+sec[0]+'</h2><span class="pill">'+stT.filter(isDone).length+' of '+stT.length+' done</span></div><p class="note">'+sec[1]+'</p>'}
+   var pd=p.tasks.filter(isDone).length;
+   var badge=p.stage===5?'<span class="badge s5">Stage 5</span>':p.stage===4?(p.status==="maybe"?'<span class="badge maybe">Maybe Stage 4</span>':'<span class="badge ok">Stage 4 confirmed</span>'):(p.status==="maybe"?'<span class="badge maybe">Maybe</span>':'');
+   var link=p.link?'https://app.fireflies.ai/view/'+encodeURIComponent(p.link):'';
+   h+='<div class="card pcard"><h3>'+esc(p.name)+' '+badge+' <span class="pill">'+pd+' of '+p.tasks.length+' done</span></h3>'+
+    '<div class="bar" style="margin-top:8px;height:6px"><i style="width:'+(p.tasks.length?Math.round(pd/p.tasks.length*100):0)+'%"></i></div>'+
+    (p.why?'<p class="why">'+esc(p.why)+(p.date?' Latest meeting: '+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(p.date)+'</a>':esc(p.date))+'.':'')+'</p>':'')+
+    LANES.map(function(l){var ts=p.tasks.filter(function(t){return (t.o||"PMs")===l[0]});if(!ts.length)return "";return '<div class="og"><h4>'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
+    (function(){var known=LANES.map(function(l){return l[0]});var rest=p.tasks.filter(function(t){return known.indexOf(t.o||"PMs")<0});return rest.length?'<div class="og"><h4>Others</h4><ul class="tasks">'+rest.map(taskHtml).join("")+'</ul></div>':""})()+
+    '</div>';
+  });
+  el.innerHTML=h;document.getElementById("nMkt").textContent=total-done;setHide(hideDone);
+ }
+ el.addEventListener("change",function(e){var li=e.target.closest("li.task");if(!li)return;ticks[li.getAttribute("data-id")]=e.target.checked?1:0;store(MKEY,ticks);draw()});
+ el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone);if(e.target.classList.contains("clearBtn")&&confirm("Clear the ticks you made on this device? Tasks marked done by the refresh stay done.")){ticks={};store(MKEY,ticks);draw()}});
+ draw();
+}
+
+/* Standup */
+function renderStandup(S){
+ var el=document.getElementById("tab-standup");
+ if(!S||S.status!=="sent"){el.innerHTML='<div class="card standup"><h2>Weekly Standup</h2><p>Your standup email goes out every Monday at 8 AM ET. After its first run on Monday, Oct 26, a summary of it will show up here.</p></div>';return}
+ el.innerHTML='<div class="card standup"><h2>Weekly Standup</h2><p class="sub">Sent '+fmtDate(S.sent_at)+(S.subject?', "'+esc(S.subject)+'"':'')+'</p>'+(S.summary||[]).map(function(x){return '<p>'+esc(x)+'</p>'}).join("")+'</div>';
+}
+
+function render(data){
+ renderDaily(data.daily);renderMarketing(data.marketing);renderStandup(data.standup);
+ document.getElementById("foot").textContent="Built "+fmtDate(data.built_at)+". Checkmarks are saved on this device.";
+ var tabs=document.querySelectorAll("nav.tabs button");
+ function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","marketing","standup"].forEach(function(n){document.getElementById("tab-"+n).classList.toggle("hidden",n!==name)});var p=load("isp-todo-prefs");p.tab=name;store("isp-todo-prefs",p)}
+ tabs.forEach(function(b){b.addEventListener("click",function(){show(b.getAttribute("data-tab"));history.replaceState(null,"","#"+b.getAttribute("data-tab"))})});
+ var h=location.hash.slice(1);show(["daily","marketing","standup"].indexOf(h)>=0?h:(load("isp-todo-prefs").tab||"daily"));
+}
+})();
+</script>
+</body>
+</html>
