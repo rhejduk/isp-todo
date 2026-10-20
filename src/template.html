@@ -231,6 +231,31 @@ li.task.wip.sprouting .what::before{animation:sproutUp .6s cubic-bezier(.3,1.8,.
 .pill.wipp{background:linear-gradient(120deg,#ece3ff,#fff1cf);color:#5a3a8a;border-color:rgba(201,166,245,.5)}
 @media (max-width:520px){.wip-btn{padding:4px 9px;font-size:.7rem}}
 @media (prefers-reduced-motion:reduce){li.task.wip,li.task.wip.sprouting .what::before{animation:none!important}}
+/* Talk with Dave: toadstool meeting spot */
+.dave-hero{position:relative;overflow:hidden;background:linear-gradient(160deg,rgba(255,252,247,.96),rgba(255,236,226,.92) 55%,rgba(236,227,255,.9))}
+.dave-hero .dhead{display:flex;align-items:center;gap:14px}
+.dave-hero .shroom{flex:none;width:58px;height:58px;filter:drop-shadow(0 4px 8px rgba(200,90,110,.25));transform-origin:50% 100%;animation:shroomBob 4.5s ease-in-out infinite}
+@keyframes shroomBob{50%{transform:rotate(-3deg) scaleY(1.03)}}
+.dave-hero .lamp{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff6c8;box-shadow:0 0 8px 3px rgba(255,215,106,.75);opacity:.2;animation:lamp 5s ease-in-out infinite;pointer-events:none}
+@keyframes lamp{0%,100%{opacity:.15;transform:translate(0,0)}50%{opacity:1;transform:translate(6px,-10px)}}
+.dave-hero .shroom .cap{fill:#ef7d9b}
+.ring{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end;margin:14px 0 4px}
+.ring svg{width:30px;height:30px;transition:transform .5s cubic-bezier(.3,1.8,.4,1),filter .5s}
+.ring svg .cap{transition:fill .5s}
+.ring svg.lit{filter:drop-shadow(0 0 6px rgba(255,215,106,.85))}
+.ring svg.lit .cap{fill:#ef7d9b}
+.ring svg.prio .cap{stroke:#e9b949;stroke-width:1.6}
+.ring svg.justlit{animation:ringPop .7s cubic-bezier(.3,1.8,.4,1)}
+@keyframes ringPop{40%{transform:translateY(-6px) scale(1.25)}}
+li.task.prio{background:linear-gradient(90deg,rgba(255,243,196,.55),rgba(255,227,236,.35));box-shadow:inset 0 0 0 1.5px rgba(233,185,73,.55);animation:fairyRing 3.6s ease-in-out infinite}
+@keyframes fairyRing{0%,100%{box-shadow:inset 0 0 0 1.5px rgba(233,185,73,.45)}50%{box-shadow:inset 0 0 0 1.5px rgba(233,185,73,.9),0 0 16px rgba(255,215,106,.45)}}
+li.task.prio.wip{animation:wipglow 3.2s ease-in-out infinite}
+.chip.wait{background:linear-gradient(120deg,#fff1cf,#ffe0ea);color:#8a3a5a}
+.ffly{position:fixed;z-index:61;width:7px;height:7px;border-radius:50%;background:#fff6c8;box-shadow:0 0 10px 4px rgba(255,215,106,.8);pointer-events:none;animation:fflyUp 2.4s ease-out forwards}
+@keyframes fflyUp{0%{opacity:0;transform:translate(0,0) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-170px) scale(1)}}
+body.calm .dave-hero .shroom,body.calm .dave-hero .lamp,body.calm li.task.prio{animation:none}
+body.calm .dave-hero .lamp{opacity:.6}
+@media (prefers-reduced-motion:reduce){.dave-hero .shroom,.dave-hero .lamp,li.task.prio,.ring svg.justlit{animation:none!important}.ffly{display:none}}
 .donebox>details>summary{font:700 1.05rem var(--f-head);color:var(--plum);list-style:none;width:auto;display:flex;align-items:center;gap:10px}
 .donebox>details>summary::-webkit-details-marker{display:none}
 .standup{text-align:center;padding:30px 22px}
@@ -273,6 +298,7 @@ footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
    <nav class="tabs" role="tablist">
     <button role="tab" data-tab="daily">Daily To Do<span class="n" id="nDaily"></span></button>
     <button role="tab" data-tab="marketing">Marketing<span class="n" id="nMkt"></span></button>
+    <button role="tab" data-tab="dave">Talk with Dave<span class="n" id="nDave"></span></button>
     <button role="tab" data-tab="standup">Standup</button>
    </nav>
   </div>
@@ -280,6 +306,7 @@ footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
  <main>
   <section class="panel" id="tab-daily"></section>
   <section class="panel" id="tab-marketing"></section>
+  <section class="panel" id="tab-dave"></section>
   <section class="panel" id="tab-standup"></section>
   <footer id="foot"></footer>
  </main>
@@ -476,8 +503,8 @@ var SPROUT='<svg class="sprout" viewBox="0 0 16 16" width="14" height="14" aria-
 function wipBtn(on){return '<button type="button" class="wip-btn" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Mark as not started':'Mark as in progress')+'">'+SPROUT+'<span>In progress</span></button>'}
 function cbx(on,label){return '<label class="cb"><input type="checkbox" aria-label="'+esc(label)+'"'+(on?' checked':'')+'><span></span></label>'}
 function bloom(c){return '<span class="blossom" style="--pc:'+c+'" aria-hidden="true"></span>'}
-var counts={d:0,m:0};
-function updateGreet(){$("#greet").textContent=hello()+"! You have "+counts.d+" open on your daily list and "+counts.m+" in marketing. One sparkle at a time."}
+var counts={d:0,m:0,v:0};
+function updateGreet(){$("#greet").textContent=hello()+"! You have "+counts.d+" open on your daily list, "+counts.m+" in marketing"+(counts.v?", and "+counts.v+" to talk over with Dave":"")+". One sparkle at a time."}
 
 /* ---------- Daily ---------- */
 var DKEY="isp-todo-daily-ticks",WKEY="isp-todo-daily-wip";
@@ -601,6 +628,70 @@ function renderMarketing(M){
  draw();
 }
 
+/* ---------- Talk with Dave ---------- */
+var VKEY="isp-todo-dave-ticks",VWKEY="isp-todo-dave-wip";
+function shroomSvg(cls,title){return '<svg class="'+cls+'" viewBox="0 0 32 32" role="img" aria-label="'+esc(title)+'"><title>'+esc(title)+'</title><path d="M12.5 17h7l1 11a1.5 1.5 0 0 1-1.5 1.6h-6A1.5 1.5 0 0 1 11.5 28z" fill="#fff4e4" stroke="#e8cdb6" stroke-width=".8"/><path class="cap" d="M3 17.5C3 9.5 9 4 16 4s13 5.5 13 13.5c0 1-1 1.5-2 1.5H5c-1 0-2-.5-2-1.5z" fill="#d9c7e6"/><circle cx="10" cy="12" r="2" fill="#fff"/><circle cx="17" cy="8.5" r="1.6" fill="#fff"/><circle cx="22.5" cy="13" r="2.2" fill="#fff"/><circle cx="15" cy="15" r="1.2" fill="#fff"/></svg>'}
+function fireflies(x,y){if(reduced()||calm())return;for(var i=0;i<6;i++){(function(i){setTimeout(function(){var f=document.createElement("i");f.className="ffly";f.style.left=(x+rnd(-14,14))+"px";f.style.top=(y+rnd(-6,6))+"px";f.style.setProperty("--dx",rnd(-70,70)+"px");f.style.animationDuration=rnd(1.8,2.8)+"s";f.addEventListener("animationend",function(){f.remove()});document.body.appendChild(f)},i*110)})(i)}}
+function renderDave(V){
+ V=V||{meta:{},tasks:[]};var ticks=load(VKEY),wip=load(VWKEY),T=V.tasks||[],el=$("#tab-dave"),drawT=0,lastLit=null;
+ var RANK={high:0,medium:1,low:2};
+ function isWip(t){return !ticks[t.task_id]&&!!wip[t.task_id]}
+ function byPrio(a,b){return (RANK[a.priority]==null?3:RANK[a.priority])-(RANK[b.priority]==null?3:RANK[b.priority])}
+ var SEC=[["priority","Talk about first","The ones I need Dave's answer on before anything else can move.","#ef7d9b"],["agenda","Also on my list for Dave","Follow ups and things to sort out together next time we talk.","#cdb8f2"]];
+ var NAMES={};SEC.forEach(function(s){NAMES[s[0]]=s[1]});
+ function taskHtml(t,inGroup){
+  var on=!!ticks[t.task_id],w=isWip(t),pr=t.priority==="high"&&!on;
+  var chips='<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.status==="waiting_on_dave"&&!on?'<span class="chip wait">Waiting on Dave</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
+  var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(pr?' prio':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+
+   '<details'+(pr?' open':'')+'><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
+ }
+ function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
+ function draw(){
+  clearTimeout(drawT);
+  var done=T.filter(function(t){return ticks[t.task_id]}).length,total=T.length,m=V.meta||{},today=dayKey(Date.now());
+  var W=T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)});
+  var lamps="";for(var i=0;i<7;i++)lamps+='<i class="lamp" style="left:'+(8+i*13+rnd(-4,4)).toFixed(0)+'%;top:'+rnd(10,80).toFixed(0)+'%;animation-delay:'+(-rnd(0,5)).toFixed(1)+'s;animation-duration:'+rnd(4,7).toFixed(1)+'s"></i>';
+  var ring=T.slice().sort(byPrio).map(function(t){var on=!!ticks[t.task_id];return shroomSvg((on?'lit':'')+(t.priority==="high"?' prio':'')+(on&&t.task_id===lastLit?' justlit':''),t.action+(on?' (done)':''))}).join("");
+  var h='<div class="card dave-hero">'+lamps+'<div class="dhead">'+shroomSvg("shroom","Toadstool")+'<div><h2>Talk with Dave</h2><p class="sub">Things I need to sit down with Dave about. The top one is the priority. Each toadstool lights up when we settle one.</p></div></div>'+
+   '<div class="ring" aria-label="'+done+' of '+total+' talked through">'+ring+'</div><div class="vinelbl">'+done+' of '+total+' talked through'+(total&&done===total?'. Nothing left to bring up. Lovely!':'')+'</div>'+
+   '<div class="strip"><div><b>'+(total-done)+'</b><span>To talk about</span></div><div><b>'+openIn("priority")+'</b><span>Priority</span></div><div><b>'+T.filter(function(t){return t.status==="waiting_on_dave"&&!ticks[t.task_id]}).length+'</b><span>Waiting on Dave</span></div><div class="wipt"><b>'+W.length+'</b><span>In progress</span></div></div>'+
+   '<div class="srcline">'+esc(m.sources_checked||"")+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+'</div>'+
+   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>'+
+   '<div class="card wipbox" id="daveWip"><details'+(pref("daveWipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
+   (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on anything you have started with Dave and it will wait up here.</p>')+'</details></div>';
+  SEC.forEach(function(s){
+   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(byPrio),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
+   h+='<div class="sechead">'+bloom(s[3])+'<h2>'+s[1]+'</h2><span class="pill">'+ts.length+' open</span>'+(wn?'<span class="pill wipp">'+wn+' in progress</span>':'')+'</div><p class="note">'+s[2]+'</p>';
+   h+='<div class="card"><ul class="tasks">'+(ts.length?ts.map(taskHtml).join(""):'<li class="note">'+(all?'All talked through. Lovely.':'Nothing here right now.')+'</li>')+'</ul></div>';
+  });
+  var dn=T.filter(function(t){return ticks[t.task_id]}).sort(function(a,b){return (+ticks[b.task_id]||0)-(+ticks[a.task_id]||0)});
+  var tday=dn.filter(function(t){return ticks[t.task_id]>1&&dayKey(ticks[t.task_id])===today}),earlier=dn.filter(function(t){return tday.indexOf(t)<0});
+  h+='<div class="card donebox"><details open><summary>'+bloom("#ffd76a")+'Settled today <span class="pill">'+tday.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+(tday.length?tday.map(taskHtml).join(""):'<li class="note">Check one off after you talk and a few fireflies will float up.</li>')+'</ul></details>'+
+   (earlier.length?'<details style="margin-top:12px"><summary>'+bloom("#e3d4ff")+'Settled earlier <span class="pill">'+earlier.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+earlier.map(taskHtml).join("")+'</ul></details>':'')+'</div>';
+  el.innerHTML=h;lastLit=null;counts.v=total-done;$("#nDave").textContent=total-done;updateGreet();setHide(hideDone);
+ }
+ el.addEventListener("change",function(e){
+  var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id"),t=T.filter(function(x){return x.task_id===id})[0];
+  if(!e.target.checked){delete ticks[id];store(VKEY,ticks);draw();return}
+  var allBefore=T.length-T.filter(function(x){return ticks[x.task_id]}).length;
+  ticks[id]=Date.now();store(VKEY,ticks);if(wip[id]){delete wip[id];store(VWKEY,wip)}lastLit=id;
+  var c=centerOf(e.target);burst(c[0],c[1],false);fireflies(c[0],c[1]);chime(false);
+  if(reduced()){draw()}else{li.style.maxHeight=li.offsetHeight+"px";li.offsetHeight;li.classList.add("shine","leaving");li.style.maxHeight="0px";drawT=setTimeout(draw,850)}
+  if(allBefore===1)setTimeout(function(){celebrate(null,"Everything with Dave is settled. Toadstools all aglow!")},500);
+  else if(t&&t.priority==="high")setTimeout(function(){celebrate(null,"The big one with Dave is settled. Beautiful!")},500);
+ });
+ el.addEventListener("click",function(e){
+  if(e.target.classList.contains("hideBtn"))setHide(!hideDone);
+  var b=e.target.closest(".wip-btn");if(!b)return;var li=b.closest("li.task"),id=li.getAttribute("data-id");
+  if(wip[id]){delete wip[id];store(VWKEY,wip);draw();return}
+  wip[id]=Date.now();store(VWKEY,wip);var c=centerOf(b);burst(c[0],c[1],"small");
+  b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:650);
+ });
+ el.addEventListener("toggle",function(e){if(e.target.parentNode&&e.target.parentNode.id==="daveWip")pref("daveWipClosed",!e.target.open)},true);
+ draw();
+}
+
 /* ---------- Standup ---------- */
 function renderStandup(S){
  var el=$("#tab-standup");
@@ -609,13 +700,13 @@ function renderStandup(S){
 }
 
 function render(data){
- renderDaily(data.daily);renderMarketing(data.marketing);renderStandup(data.standup);
+ renderDaily(data.daily);renderMarketing(data.marketing);renderDave(data.dave);renderStandup(data.standup);
  $("#foot").textContent="Built "+fmtDate(data.built_at)+". Checkmarks are saved on this device.";
  var tabs=$$("nav.tabs button");
- function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","marketing","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);
+ function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","marketing","dave","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);
   var k=name==="daily"?"daily":name==="marketing"?"mkt":null;if(k&&vineMem[k]!=null){var v=vineMem[k];vineMem[k]=0;growVine($("#tab-"+name),k,v)}}
  tabs.forEach(function(b){b.addEventListener("click",function(){show(b.getAttribute("data-tab"));history.replaceState(null,"","#"+b.getAttribute("data-tab"))})});
- var h=location.hash.slice(1);show(["daily","marketing","standup"].indexOf(h)>=0?h:(pref("tab")||"daily"));
+ var h=location.hash.slice(1);var TABS=["daily","marketing","dave","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));
 }
 })();
 </script>

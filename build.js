@@ -15,12 +15,14 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const pw = fs.readFileSync(PWFILE, "utf8").replace(/\r?\n$/, "");
   if (!pw) throw new Error("empty password file");
   const daily = readJson("daily.json"), marketing = readJson("marketing.json");
+  const dave = fs.existsSync(path.join(ROOT, "data/dave.json")) ? readJson("dave.json") : { meta: {}, tasks: [] };
   const standup = fs.existsSync(path.join(ROOT, "data/standup.json")) ? readJson("standup.json") : { status: "pending" };
 
   // sanity checks: stable unique ids
   const kebab = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   const dIds = daily.tasks.map((t) => t.task_id), mIds = marketing.projects.flatMap((p) => p.tasks.map((t) => t.id));
-  for (const [name, ids] of [["daily", dIds], ["marketing", mIds]]) {
+  const vIds = dave.tasks.map((t) => t.task_id);
+  for (const [name, ids] of [["daily", dIds], ["marketing", mIds], ["dave", vIds]]) {
     if (new Set(ids).size !== ids.length) throw new Error(name + ": duplicate task ids");
     const bad = ids.filter((i) => !kebab.test(i));
     if (bad.length) throw new Error(name + ": non kebab-case ids: " + bad.join(", "));
@@ -34,7 +36,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
 
   const base = await subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
   const key = await subtle.deriveKey({ name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
-  const payload = JSON.stringify({ daily, marketing, standup, built_at: new Date().toISOString() });
+  const payload = JSON.stringify({ daily, marketing, dave, standup, built_at: new Date().toISOString() });
   const ct = await subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(payload));
 
   const blob = JSON.stringify({ v: 1, iter: ITER, salt: b64(salt), iv: b64(iv), ct: b64(new Uint8Array(ct)) });
@@ -43,12 +45,12 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const html = tpl.replace("/*__PAYLOAD__*/", () => blob);
 
   // leak guard: no task text, ids, or the password may appear in the output
-  const probes = [pw, ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id])])]
+  const probes = [pw, ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id])])]
     .filter((s) => typeof s === "string" && s.length >= 12);
   const leaks = probes.filter((s) => html.includes(s));
   if (leaks.length) throw new Error("plaintext leak guard tripped (" + leaks.length + " strings). Not writing index.html.");
 
   fs.writeFileSync(path.join(ROOT, "index.html"), html);
   const mDone = marketing.projects.flatMap((p) => p.tasks).filter((t) => t.d).length;
-  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), ${html.length} bytes`);
+  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), dave ${vIds.length} tasks, ${html.length} bytes`);
 })().catch((e) => { console.error("BUILD FAILED: " + e.message); process.exit(1); });
