@@ -2,3 +2,4 @@ data/
 source/
 node_modules/
 *.plain.*
+shots/
