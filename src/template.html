@@ -211,6 +211,26 @@ summary{font-size:.82rem;color:#8a4fc7;cursor:pointer;font-weight:700;width:max-
 .lanes b{display:block;font:700 1rem var(--f-head)}
 .pcard.complete{box-shadow:0 0 0 2px rgba(255,215,106,.7),var(--shadow)}
 body.hide-done li.task.done{display:none}
+.wip-btn{flex:none;align-self:flex-start;display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 11px;border-radius:999px;border:1.5px dashed #d6b8e8;background:rgba(255,255,255,.85);color:#8a74a3;font-size:.74rem;font-weight:800;white-space:nowrap;transition:background .25s,border-color .25s,color .25s,box-shadow .25s}
+.wip-btn:hover{border-color:#b892ec;color:#6a4a92}
+.wip-btn .sprout{opacity:.45;transition:transform .4s cubic-bezier(.3,1.8,.4,1),opacity .3s;transform-origin:50% 100%}
+.wip-btn[aria-pressed=true]{border:1.5px solid transparent;background:linear-gradient(120deg,#ece3ff,#fff1cf);color:#5a3a8a;box-shadow:0 0 0 1px rgba(201,166,245,.6),0 3px 10px rgba(201,166,245,.35)}
+.wip-btn[aria-pressed=true] .sprout{opacity:1;transform:scale(1.15)}
+li.task.wip{background:linear-gradient(90deg,rgba(236,227,255,.75),rgba(255,247,220,.45));box-shadow:inset 4px 0 0 #c9a6f5;animation:wipglow 3.2s ease-in-out infinite}
+@keyframes wipglow{0%,100%{box-shadow:inset 4px 0 0 #c9a6f5,0 0 0 rgba(233,185,73,0)}50%{box-shadow:inset 4px 0 0 #e9b949,0 0 14px rgba(205,184,242,.55)}}
+body.calm li.task.wip{animation:none}
+li.task.wip .what::before{content:"";display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 15V8' stroke='%235f9e80' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M8 9C8 6 6 4 3 4c0 3 2 5 5 5z' fill='%238fd3b3'/%3E%3Cpath d='M8 8c0-3 2-5 5-5 0 3-2 5-5 5z' fill='%23a9dfc3'/%3E%3C/svg%3E") no-repeat center/contain}
+li.task.wip.sprouting .what::before{animation:sproutUp .6s cubic-bezier(.3,1.8,.4,1)}
+@keyframes sproutUp{from{transform:scale(0) translateY(6px)}}
+.wipbox{background:linear-gradient(135deg,rgba(236,227,255,.95),rgba(255,247,220,.92))}
+.wipbox>details>summary{font:700 1.08rem var(--f-head);color:var(--plum);list-style:none;display:flex;align-items:center;gap:10px;cursor:pointer}
+.wipbox>details>summary::-webkit-details-marker{display:none}
+.wipbox .hint{margin:4px 0 0;color:var(--soft);font-size:.9rem}
+.wipbox .secnm{display:block;font-size:.76rem;color:#8a74a3;font-weight:700}
+.strip div.wipt{background:linear-gradient(135deg,#ece3ff,#fff1cf)}
+.pill.wipp{background:linear-gradient(120deg,#ece3ff,#fff1cf);color:#5a3a8a;border-color:rgba(201,166,245,.5)}
+@media (max-width:520px){.wip-btn{padding:4px 9px;font-size:.7rem}}
+@media (prefers-reduced-motion:reduce){li.task.wip,li.task.wip.sprouting .what::before{animation:none!important}}
 .donebox>details>summary{font:700 1.05rem var(--f-head);color:var(--plum);list-style:none;width:auto;display:flex;align-items:center;gap:10px}
 .donebox>details>summary::-webkit-details-marker{display:none}
 .standup{text-align:center;padding:30px 22px}
@@ -342,10 +362,10 @@ var DUST=["#f5b82e","#ffd24d","#ff86b4","#f59ac0","#b07cf0","#9b6be0","#ffc0dc",
 function size(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(innerWidth*DPR);cv.height=Math.round(innerHeight*DPR);cx.setTransform(DPR,0,0,DPR,0,0)}
 size();window.addEventListener("resize",size);
 function burst(x,y,big){
- var simple=reduced(),n=simple?12:(big?170:96),room=CAP-P.length;n=Math.max(0,Math.min(n,room));
- RINGS.push({x:x,y:y,life:0,max:simple?18:(big?40:28),r:simple?20:(big?80:46)});
+ var small=big==="small";if(small)big=false;var simple=reduced(),n=simple?(small?7:12):(small?26:(big?170:96)),room=CAP-P.length;n=Math.max(0,Math.min(n,room));
+ RINGS.push({x:x,y:y,life:0,max:simple?18:(big?40:(small?20:28)),r:simple?(small?12:20):(big?80:(small?22:46))});
  for(var i=0;i<n;i++){
-  var ang=Math.random()*Math.PI*2,glit=!simple&&i%4===0,sp=simple?rnd(1,3):glit?rnd(.6,2.2):rnd(2.5,big?11:8);
+  var ang=Math.random()*Math.PI*2,glit=!simple&&i%4===0,sp=simple?rnd(1,small?2:3):glit?rnd(.6,2.2):rnd(small?1.2:2.5,big?11:(small?4:8));
   P.push({x:x,y:y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-(simple||glit?0:1.3),life:0,max:simple?rnd(22,34):glit?rnd(70,110):rnd(40,80),
    s:simple?rnd(1.5,2.6):rnd(1.4,big?4.6:3.8),c:pick(DUST),k:glit?3:(Math.random()<.34?1:(Math.random()<.18?2:0)),rot:Math.random()*6.3,vr:rnd(-.25,.25),tw:Math.random()*6,tr:simple?null:[]});
  }
@@ -452,42 +472,48 @@ function xcheck(x){
 }
 var hideDone=pref("hideDone")===true;
 function setHide(on){hideDone=on;document.body.classList.toggle("hide-done",on);pref("hideDone",on);$$(".hideBtn").forEach(function(b){b.textContent=on?"Show finished":"Hide finished"})}
+var SPROUT='<svg class="sprout" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 15V8" stroke="#5f9e80" stroke-width="1.6" stroke-linecap="round"/><path d="M8 9C8 6 6 4 3 4c0 3 2 5 5 5z" fill="#8fd3b3"/><path d="M8 8c0-3 2-5 5-5 0 3-2 5-5 5z" fill="#a9dfc3"/></svg>';
+function wipBtn(on){return '<button type="button" class="wip-btn" aria-pressed="'+(on?'true':'false')+'" title="'+(on?'Mark as not started':'Mark as in progress')+'">'+SPROUT+'<span>In progress</span></button>'}
 function cbx(on,label){return '<label class="cb"><input type="checkbox" aria-label="'+esc(label)+'"'+(on?' checked':'')+'><span></span></label>'}
 function bloom(c){return '<span class="blossom" style="--pc:'+c+'" aria-hidden="true"></span>'}
 var counts={d:0,m:0};
 function updateGreet(){$("#greet").textContent=hello()+"! You have "+counts.d+" open on your daily list and "+counts.m+" in marketing. One sparkle at a time."}
 
 /* ---------- Daily ---------- */
-var DKEY="isp-todo-daily-ticks";
+var DKEY="isp-todo-daily-ticks",WKEY="isp-todo-daily-wip";
 function renderDaily(D){
- var ticks=load(DKEY),T=D.tasks,el=$("#tab-daily"),drawT=0;
+ var ticks=load(DKEY),wip=load(WKEY),T=D.tasks,el=$("#tab-daily"),drawT=0;
+ function isWip(t){return !ticks[t.task_id]&&!!wip[t.task_id]}
  var SEC=[["top_priorities","Top priorities","Urgent, blocking, or deadline driven actions that are yours.","#f7a8c4"],
   ["new_since_last_digest","New since last digest","New actions that showed up after the last list.","#9fdcbf"],
   ["follow_ups_and_waiting","Follow-ups and waiting","Follow-ups and next steps still waiting on you.","#cdb8f2"],
   ["by_project","By project","Everything else, grouped by project.","#ffc9a8"]];
  var NAMES={};SEC.forEach(function(s){NAMES[s[0]]=s[1]});
- function taskHtml(t){
-  var on=!!ticks[t.task_id];
+ function taskHtml(t,inGroup){
+  var on=!!ticks[t.task_id],w=isWip(t);
   var chips='<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
   var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
-  return '<li class="task'+(on?' done':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.action)+'</span>'+
-   '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div></li>';
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+
+   '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
  }
  function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
  function draw(){
   clearTimeout(drawT);
   var done=T.filter(function(t){return ticks[t.task_id]}).length,total=T.length,pct=total?Math.round(done/total*100):0;
-  var projs={};T.filter(function(t){return t.section==="by_project"&&!ticks[t.task_id]}).forEach(function(t){(projs[t.project]=projs[t.project]||[]).push(t)});
+  var projs={};T.filter(function(t){return t.section==="by_project"&&!ticks[t.task_id]&&!isWip(t)}).forEach(function(t){(projs[t.project]=projs[t.project]||[]).push(t)});
   var pn=Object.keys(projs).sort(function(a,b){return a.localeCompare(b)});
   var m=D.meta||{},today=dayKey(Date.now());
+  var W=T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)});
   var h='<div class="card"><h2>Daily To Do</h2><p class="sub">Only tasks assigned to you, committed to by you, or waiting on you. List for '+esc(m.list_date_label||m.list_date)+'.</p>'+
    vineHtml("daily")+'<div class="vinelbl">'+done+' of '+total+' done ('+pct+'%)'+(pct>=100?'. Your garden is in full bloom!':'')+'</div>'+
-   '<div class="strip"><div><b>'+(total-done)+'</b><span>Active</span></div><div><b>'+openIn("top_priorities")+'</b><span>Top priorities</span></div><div><b>'+openIn("new_since_last_digest")+'</b><span>New since last digest</span></div><div><b>'+openIn("follow_ups_and_waiting")+'</b><span>Follow-ups</span></div><div><b>'+pn.length+'</b><span>Project groups</span></div></div>'+
+   '<div class="strip"><div><b>'+(total-done)+'</b><span>Active</span></div><div><b>'+openIn("top_priorities")+'</b><span>Top priorities</span></div><div><b>'+openIn("new_since_last_digest")+'</b><span>New since last digest</span></div><div><b>'+openIn("follow_ups_and_waiting")+'</b><span>Follow-ups</span></div><div><b>'+pn.length+'</b><span>Project groups</span></div><div class="wipt"><b>'+W.length+'</b><span>In progress</span></div></div>'+
    '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
-   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>'+xcheck(D.crosscheck);
+   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>'+xcheck(D.crosscheck)+
+   '<div class="card wipbox" id="wipGroup"><details'+(pref("wipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
+   (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on any task and it will wait for you up here while you work on it.</p>')+'</details></div>';
   SEC.forEach(function(s){
-   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]}),all=T.filter(function(t){return t.section===s[0]}).length;
-   h+='<div class="sechead">'+bloom(s[3])+'<h2>'+s[1]+'</h2><span class="pill">'+ts.length+' open</span></div><p class="note">'+s[2]+'</p>';
+   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
+   h+='<div class="sechead">'+bloom(s[3])+'<h2>'+s[1]+'</h2><span class="pill">'+ts.length+' open</span>'+(wn?'<span class="pill wipp">'+wn+' in progress</span>':'')+'</div><p class="note">'+s[2]+'</p>';
    if(s[0]==="by_project"){h+=pn.length?'<div class="pgrid">'+pn.map(function(n){return '<div class="card pcard"><h3>'+esc(n)+' <span class="pill">'+projs[n].length+'</span></h3><ul class="tasks">'+projs[n].map(taskHtml).join("")+'</ul></div>'}).join("")+'</div>':'<div class="card"><p class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</p></div>'}
    else h+='<div class="card"><ul class="tasks">'+(ts.length?ts.map(taskHtml).join(""):'<li class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</li>')+'</ul></div>';
   });
@@ -501,27 +527,35 @@ function renderDaily(D){
   var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id"),t=T.filter(function(x){return x.task_id===id})[0];
   if(!e.target.checked){delete ticks[id];store(DKEY,ticks);draw();return}
   var secOpenBefore=openIn(t.section),allBefore=T.length-T.filter(function(x){return ticks[x.task_id]}).length;
-  ticks[id]=Date.now();store(DKEY,ticks);
+  ticks[id]=Date.now();store(DKEY,ticks);if(wip[id]){delete wip[id];store(WKEY,wip)}
   var c=centerOf(e.target);burst(c[0],c[1],false);chime(false);
   if(reduced()){draw()}else{li.style.maxHeight=li.offsetHeight+"px";li.offsetHeight;li.classList.add("shine","leaving");li.style.maxHeight="0px";drawT=setTimeout(draw,850)}
   if(allBefore===1)setTimeout(function(){celebrate(null,"Every single task is done. Your garden is in full bloom!")},500);
   else if(secOpenBefore===1)setTimeout(function(){celebrate(null,NAMES[t.section]+" all done. Beautiful work!")},500);
  });
- el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone)});
+ el.addEventListener("click",function(e){
+  if(e.target.classList.contains("hideBtn"))setHide(!hideDone);
+  var b=e.target.closest(".wip-btn");if(!b)return;var li=b.closest("li.task"),id=li.getAttribute("data-id");
+  if(wip[id]){delete wip[id];store(WKEY,wip);draw();return}
+  wip[id]=Date.now();store(WKEY,wip);var c=centerOf(b);burst(c[0],c[1],"small");
+  b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:650);
+ });
+ el.addEventListener("toggle",function(e){if(e.target.parentNode&&e.target.parentNode.id==="wipGroup")pref("wipClosed",!e.target.open)},true);
  draw();
 }
 
 /* ---------- Marketing ---------- */
-var MKEY="isp-todo-mkt-ticks";
+var MKEY="isp-todo-mkt-ticks",MWKEY="isp-todo-mkt-wip";
 function renderMarketing(M){
- var ticks=load(MKEY),el=$("#tab-marketing"),drawT=0;
+ var ticks=load(MKEY),wip=load(MWKEY),el=$("#tab-marketing"),drawT=0;
  var LANES=M.lanes||[["Rachel","Your own tasks"],["Curtis","Website"],["Gabriel","Meta and other ads"],["Adriana","Packaging and graphics"],["Ben","Everything else"],["PMs","PMs, founders and others"]];
  var order={4:0,5:1,0:2};
  var PR=M.projects.slice().sort(function(a,b){var s=(order[a.stage]==null?3:order[a.stage])-(order[b.stage]==null?3:order[b.stage]);return s||a.name.localeCompare(b.name)});
  var SECS={4:["Stage 4","Production started, not yet selling.","#f7a8c4"],5:["Stage 5","Selling now. Only FunL and Livin are tracked.","#cdb8f2"],0:["Other","Not tied to a project yet.","#9fdcbf"]};
  function isDone(t){return ticks.hasOwnProperty(t.id)?ticks[t.id]===1:!!t.d}
  function ocls(o){return "o-"+String(o||"PMs").replace(/[^A-Za-z]/g,"")}
- function taskHtml(t){var on=isDone(t);return '<li class="task'+(on?' done':'')+'" data-id="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span></div></li>'}
+ function isWip(t){return !isDone(t)&&!!wip[t.id]}
+ function taskHtml(t){var on=isDone(t),w=isWip(t);return '<li class="task'+(on?' done':'')+(w?' wip':'')+'" data-id="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span></div>'+(on?'':wipBtn(w))+'</li>'}
  function allTasks(){var a=[];PR.forEach(function(p){a=a.concat(p.tasks)});return a}
  function draw(){
   clearTimeout(drawT);
@@ -529,17 +563,18 @@ function renderMarketing(M){
   var h='<div class="card"><h2>Marketing Checklist</h2><p class="sub">Getting each product ready to launch. Stage 4 means production is running and nothing has sold yet (a preorder still counts as not sold). Stage 5 means it is selling.</p>'+
    '<div class="lanes">'+LANES.filter(function(l){return l[0]!=="PMs"}).map(function(l){return '<div class="'+ocls(l[0])+'"><b>'+esc(l[0])+'</b>'+esc(l[1])+'</div>'}).join("")+'</div>'+
    vineHtml("mkt")+'<div class="vinelbl">'+done+' of '+total+' tasks done ('+pct+'%)</div>'+
+   '<div class="strip"><div><b>'+(total-done)+'</b><span>Open</span></div><div class="wipt"><b>'+all.filter(isWip).length+'</b><span>In progress</span></div><div><b>'+done+'</b><span>Done</span></div><div><b>'+PR.length+'</b><span>Projects</span></div></div>'+
    '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button><button type="button" class="clearBtn">Clear my ticks</button></div></div>'+xcheck(M.crosscheck);
   var last=null;
   PR.forEach(function(p,pi){
    if(p.stage!==last){last=p.stage;var stT=[];PR.filter(function(q){return q.stage===p.stage}).forEach(function(q){stT=stT.concat(q.tasks)});var sec=SECS[p.stage]||["Other","","#9fdcbf"];
     h+='<div class="sechead">'+bloom(sec[2])+'<h2>'+sec[0]+'</h2><span class="pill">'+stT.filter(isDone).length+' of '+stT.length+' done</span></div><p class="note">'+sec[1]+'</p>'}
-   var pd=p.tasks.filter(isDone).length,full=p.tasks.length&&pd===p.tasks.length;
+   var pd=p.tasks.filter(isDone).length,pw=p.tasks.filter(isWip).length,full=p.tasks.length&&pd===p.tasks.length;
    var badge=p.stage===5?'<span class="badge s5">Stage 5</span>':p.stage===4?(p.status==="maybe"?'<span class="badge maybe">Maybe Stage 4</span>':'<span class="badge ok">Stage 4 confirmed</span>'):(p.status==="maybe"?'<span class="badge maybe">Maybe</span>':'');
    var link=p.link?'https://app.fireflies.ai/view/'+encodeURIComponent(p.link):'';
    var known=LANES.map(function(l){return l[0]}),rest=p.tasks.filter(function(t){return known.indexOf(t.o||"PMs")<0});
-   h+='<div class="card pcard'+(full?' complete':'')+'" data-p="'+pi+'"><h3>'+esc(p.name)+' '+badge+' <span class="pill">'+pd+' of '+p.tasks.length+' done</span></h3>'+
+   h+='<div class="card pcard'+(full?' complete':'')+'" data-p="'+pi+'"><h3>'+esc(p.name)+' '+badge+' <span class="pill">'+pd+' of '+p.tasks.length+' done</span>'+(pw?'<span class="pill wipp">'+pw+' in progress</span>':'')+'</h3>'+
     '<div class="minivine"><i style="width:'+(p.tasks.length?Math.round(pd/p.tasks.length*100):0)+'%"></i></div>'+
     (p.why?'<p class="why">'+esc(p.why)+(p.date?' Latest meeting: '+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(p.date)+'</a>':esc(p.date))+'.':'')+'</p>':'')+
     LANES.map(function(l){var ts=p.tasks.filter(function(t){return (t.o||"PMs")===l[0]});if(!ts.length)return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
@@ -551,14 +586,18 @@ function renderMarketing(M){
   var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id");
   if(!e.target.checked){ticks[id]=0;store(MKEY,ticks);draw();return}
   var card=li.closest(".pcard"),p=PR[+card.getAttribute("data-p")];
-  ticks[id]=1;store(MKEY,ticks);
+  ticks[id]=1;store(MKEY,ticks);if(wip[id]){delete wip[id];store(MWKEY,wip)}
   var c=centerOf(e.target);burst(c[0],c[1],false);chime(false);
-  li.classList.add("done","pop","shine");drawT=setTimeout(draw,reduced()?0:900);
+  li.classList.remove("wip");var wb=li.querySelector(".wip-btn");if(wb)wb.remove();li.classList.add("done","pop","shine");drawT=setTimeout(draw,reduced()?0:900);
   var all=allTasks();
   if(all.every(isDone))setTimeout(function(){celebrate(null,"The whole checklist is done. Incredible!")},450);
   else if(p.tasks.every(isDone))setTimeout(function(){celebrate(card,p.name+" is all done. Time to celebrate!")},450);
  });
- el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone);if(e.target.classList.contains("clearBtn")&&confirm("Clear the ticks you made on this device? Tasks marked done by the refresh stay done.")){ticks={};store(MKEY,ticks);draw()}});
+ el.addEventListener("click",function(e){
+  var b=e.target.closest(".wip-btn");if(b){var li=b.closest("li.task"),id=li.getAttribute("data-id");
+   if(wip[id]){delete wip[id];store(MWKEY,wip);draw();return}
+   wip[id]=Date.now();store(MWKEY,wip);var c=centerOf(b);burst(c[0],c[1],"small");b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:600);return}
+  if(e.target.classList.contains("hideBtn"))setHide(!hideDone);if(e.target.classList.contains("clearBtn")&&confirm("Clear the ticks you made on this device? Tasks marked done by the refresh stay done.")){ticks={};store(MKEY,ticks);draw()}});
  draw();
 }
 
