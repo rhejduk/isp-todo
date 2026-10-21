@@ -23,7 +23,10 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const kebab = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   const dIds = daily.tasks.map((t) => t.task_id), mIds = marketing.projects.flatMap((p) => p.tasks.map((t) => t.id));
   const vIds = dave.tasks.map((t) => t.task_id);
-  for (const [name, ids] of [["daily", dIds], ["marketing", mIds], ["dave", vIds]]) {
+  // Stage 4 checklist deliverables (see STAGE4_DELIVERABLES.md): ids must stay stable so ticks survive refreshes
+  const sIds = marketing.projects.flatMap((p) => (p.deliverables || []).map((d) => d.id));
+  if (sIds.some((i) => !/^s4-/.test(i))) throw new Error("stage4: deliverable ids must start with s4-");
+  for (const [name, ids] of [["daily", dIds], ["marketing", mIds], ["dave", vIds], ["stage4", sIds]]) {
     if (new Set(ids).size !== ids.length) throw new Error(name + ": duplicate task ids");
     const bad = ids.filter((i) => !kebab.test(i));
     if (bad.length) throw new Error(name + ": non kebab-case ids: " + bad.join(", "));
@@ -68,12 +71,12 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const html = tpl.replace("/*__PAYLOAD__*/", () => blob);
 
   // leak guard: no task text, ids, or the password may appear in the output
-  const probes = [pw, ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)])]
+  const probes = [pw, ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)])]
     .filter((s) => typeof s === "string" && s.length >= 12);
   const leaks = probes.filter((s) => html.includes(s));
   if (leaks.length) throw new Error("plaintext leak guard tripped (" + leaks.length + " strings). Not writing index.html.");
 
   fs.writeFileSync(path.join(ROOT, "index.html"), html);
   const mDone = marketing.projects.flatMap((p) => p.tasks).filter((t) => t.d).length;
-  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, ${html.length} bytes`);
+  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, ${html.length} bytes`);
 })().catch((e) => { console.error("BUILD FAILED: " + e.message); process.exit(1); });

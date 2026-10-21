@@ -301,6 +301,31 @@ body.calm .dave-hero .lamp{opacity:.6}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
 @media (prefers-reduced-motion:reduce){.ambient,.cloud{display:none}.flower,.flower .head,.sun,.shimmer-text,.panel{animation:none!important}li.task.leaving{transition-duration:.01s!important;transition-delay:0s!important}}
+/* Stage 4 deliverables (Marketing tab) */
+.s4{margin:10px 0 6px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,#f6f1ff,#fff7fb);border:1px solid var(--line);min-width:0}
+.s4bar{position:relative;display:flex;height:12px;border-radius:999px;background:#efe7f7;overflow:hidden}
+.s4bar i{display:block;height:100%;transition:width .5s ease}
+.s4bar .d{background:linear-gradient(90deg,#f29bbd,#b892ec)}
+.s4bar .p{background:#ddd0f6}
+.s4lbl{font-size:.87rem;font-weight:800;color:var(--plum);margin-top:6px}
+.s4sub{font-size:.78rem;color:var(--soft);font-weight:700}
+.s4sub .k{display:inline-block;width:9px;height:9px;border-radius:3px;margin:0 3px 0 6px;vertical-align:-1px}
+.s4ph{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:7px 0 0;padding:0}
+.s4ph li{font-size:.7rem;font-weight:800;border-radius:999px;padding:1px 7px;background:#fff;border:1px solid var(--line);color:var(--soft)}
+.s4ph li.full{background:var(--mint2);color:#2f6b52;border-color:#bfe8d4}
+.s4ph li.cur{background:linear-gradient(120deg,#fbd3e2,#e3d4ff);color:var(--plum);border-color:#e0789f}
+details.s4d{margin-top:8px}
+details.s4d>summary{width:auto;max-width:100%}
+.s4d .s4note{font-size:.8rem;color:var(--soft);margin:6px 2px}
+h5.s4sec{margin:10px 0 2px;font:700 .92rem/1.3 var(--f-head);color:var(--plum2);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+h5.s4sec .pill{font-size:.7rem}
+li.task.dlv{padding:8px 4px;gap:10px}
+li.task.dlv .what{font-weight:700;font-size:.93rem;overflow-wrap:anywhere}
+li.task.dlv .who{font-size:.8rem;overflow-wrap:anywhere}
+li.task.dlv .src{display:block;font-size:.76rem;color:#8b7a9c}
+.stag{display:inline-block;font-size:.7rem;font-weight:800;border-radius:999px;padding:0 7px;margin-right:5px;background:#f1edf5;color:#7c6c8c}
+.st-done{background:var(--mint2);color:#2f6b52}.st-inprogress{background:#ece3ff;color:#5e4778}.st-notstarted{background:#fff;color:#7c6c8c;border:1px solid var(--line)}
+.st-blocked{background:#ffe0ea;color:#a4305d}.st-waitingon{background:#fff1cf;color:#86600a}.st-unknown{background:#f1edf5;color:#8b7a9c}.st-unticked{background:#ffe7d6;color:#8a4a22}
 </style>
 </head>
 <body>
@@ -609,7 +634,7 @@ function renderDaily(D){
 }
 
 /* ---------- Marketing ---------- */
-var MKEY="isp-todo-mkt-ticks",MWKEY="isp-todo-mkt-wip";
+var MKEY="isp-todo-mkt-ticks",MWKEY="isp-todo-mkt-wip";var SKEY="isp-todo-s4-ticks";
 function renderMarketing(M){
  var ticks=load(MKEY),wip=load(MWKEY),el=$("#tab-marketing"),drawT=0;
  var LANES=M.lanes||[["Rachel","Your own tasks"],["Curtis","Website"],["Gabriel","Meta and other ads"],["Adriana","Packaging and graphics"],["Ben","Everything else"],["PMs","PMs, founders and others"]];
@@ -621,6 +646,29 @@ function renderMarketing(M){
  function isWip(t){return !isDone(t)&&!!wip[t.id]}
  function taskHtml(t){var on=isDone(t),w=isWip(t);return '<li class="task'+(on?' done':'')+(w?' wip':'')+'" data-id="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span></div>'+(on?'':wipBtn(w))+'</li>'}
  function allTasks(){var a=[];PR.forEach(function(p){a=a.concat(p.tasks)});return a}
+ /* Stage 4 checklist deliverables: own ticks, own bar. Meeting tasks above are not counted. */
+ var S4=(M.meta||{}).stage4||{},SECT=S4.sections||[],s4t=load(SKEY),s4open=pref("s4open")||{};
+ function dDone(d){return s4t.hasOwnProperty(d.id)?s4t[d.id]===1:d.st==="done"}
+ function dStat(d){if(s4t.hasOwnProperty(d.id)){if(s4t[d.id]===1)return "done";if(d.st==="done")return "unticked"}return d.st||"unknown"}
+ function stCls(st){return "st-"+String(st).replace(/[^a-z]/g,"")}
+ function srcTxt(d){var dt=d.sd?new Date(d.sd+"T12:00:00Z").toLocaleDateString("en-US",{month:"short",day:"numeric"}):"";return (d.note||"")+(d.src?" ("+d.src+(dt?", "+dt:"")+")":"")}
+ function s4tick(d){return s4t.hasOwnProperty(d.id)?(s4t[d.id]===1?" · You ticked this":" · You unticked this"):""}
+ function dHtml(d){var on=dDone(d),st=dStat(d),ttl=srcTxt(d);return '<li class="task dlv'+(on?' done':'')+'" data-s4="'+esc(d.id)+'">'+cbx(on,on?"Mark deliverable not done":"Mark deliverable done")+'<div class="body"><span class="what">'+esc(d.t)+'</span><span class="who"><span class="stag '+stCls(st)+'">'+esc(st==="unticked"?"unticked by you":st)+'</span>Owner: '+esc(d.o)+'</span>'+(ttl?'<span class="src" title="'+esc(ttl)+'">'+esc(ttl)+esc(s4tick(d))+'</span>':'')+'</div></li>'}
+ function s4bar(p){var D=p.deliverables,n=S4.in_scope||D.length,dn=D.filter(dDone).length,pr=D.filter(function(d){return !dDone(d)&&dStat(d)==="in progress"}).length,un=D.filter(function(d){return !dDone(d)&&dStat(d)==="unknown"}).length,g=p.stage4||{};
+  var pd=n?dn/n*100:0,pp=n?pr/n*100:0;
+  var ph=SECT.map(function(sec,i){var xs=D.filter(function(d){return d.sec===sec}),xd=xs.filter(dDone).length;return '<li class="'+(String(i+1)===String(g.phase)?'cur ':'')+(xs.length&&xd===xs.length?'full':'')+'" title="Phase '+(i+1)+' '+esc(sec)+': '+xd+' of '+xs.length+' done">'+(i+1)+' '+esc(sec.split(" ")[0])+'</li>'}).join("");
+  return '<div class="s4bar" role="img" aria-label="'+dn+' of '+n+' deliverables done, '+pr+' in progress"><i class="d" style="width:'+pd.toFixed(1)+'%"></i><i class="p" style="width:'+pp.toFixed(1)+'%"></i></div>'+
+   '<div class="s4lbl">'+dn+' of '+n+' deliverables done'+(g.phase?', Phase '+esc(g.phase)+' '+esc(g.phase_label||""):"")+'</div>'+
+   '<div class="s4sub"><span class="k" style="background:linear-gradient(90deg,#f29bbd,#b892ec)"></span>'+Math.round(pd)+'% done · <span class="k" style="background:#ddd0f6"></span>'+pr+' in progress · '+un+' unknown'+(g.launch?' · '+esc(g.launch):'')+'</div>'+
+   '<ol class="s4ph" aria-label="Stage 4 phases">'+ph+'</ol>'}
+ function s4block(p){if(!p.deliverables||!p.deliverables.length)return "";var key=p.name,D=p.deliverables;
+  return '<div class="s4" data-s4p="'+esc(key)+'"><div class="s4top">'+s4bar(p)+'</div><details class="s4d" data-s4k="'+esc(key)+'"'+(s4open[key]?' open':'')+'><summary>Stage 4 deliverables ('+D.length+' checklist items)</summary>'+
+   '<p class="s4note">The bar counts only these '+(S4.in_scope||D.length)+' checklist deliverables, not the meeting tasks below. Lighter segment is in progress. Phase is where the brand sits per its latest meetings. Unknown means no meeting evidence yet, so tick anything you know is done.</p>'+
+   SECT.map(function(sec,i){var xs=D.filter(function(d){return d.sec===sec});if(!xs.length)return "";return '<h5 class="s4sec">'+(i+1)+'. '+esc(sec)+' <span class="pill" data-s4sec="'+esc(sec)+'">'+xs.filter(dDone).length+' of '+xs.length+' done</span></h5><ul class="tasks">'+xs.map(dHtml).join("")+'</ul>'}).join("")+
+   '</details></div>'}
+ function s4refresh(p){var box=el.querySelector('.s4[data-s4p="'+CSS.escape(p.name)+'"]');if(!box)return;box.querySelector(".s4top").innerHTML=s4bar(p);
+  $$("[data-s4sec]",box).forEach(function(pl){var sec=pl.getAttribute("data-s4sec"),xs=p.deliverables.filter(function(d){return d.sec===sec});pl.textContent=xs.filter(dDone).length+" of "+xs.length+" done"})}
+ el.addEventListener("toggle",function(e){var k=e.target.getAttribute&&e.target.getAttribute("data-s4k");if(k==null)return;if(e.target.open)s4open[k]=1;else delete s4open[k];pref("s4open",s4open)},true);
  function draw(){
   clearTimeout(drawT);
   var all=allTasks(),done=all.filter(isDone).length,total=all.length,pct=total?Math.round(done/total*100):0,m=M.meta||{};
@@ -641,12 +689,21 @@ function renderMarketing(M){
    h+='<div class="card pcard'+(full?' complete':'')+'" data-p="'+pi+'"><h3>'+esc(p.name)+' '+badge+' <span class="pill">'+pd+' of '+p.tasks.length+' done</span>'+(pw?'<span class="pill wipp">'+pw+' in progress</span>':'')+'</h3>'+
     '<div class="minivine"><i style="width:'+(p.tasks.length?Math.round(pd/p.tasks.length*100):0)+'%"></i></div>'+
     (p.why?'<p class="why">'+esc(p.why)+(p.date?' Latest meeting: '+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(p.date)+'</a>':esc(p.date))+'.':'')+'</p>':'')+
+    s4block(p)+
     LANES.map(function(l){var ts=p.tasks.filter(function(t){return (t.o||"PMs")===l[0]});if(!ts.length)return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
     (rest.length?'<div class="og"><h4>Others</h4><ul class="tasks">'+rest.map(taskHtml).join("")+'</ul></div>':"")+'</div>';
   });
   el.innerHTML=h;growVine(el,"mkt",pct);counts.m=total-done;$("#nMkt").textContent=total-done;updateGreet();setHide(hideDone);
  }
  el.addEventListener("change",function(e){
+  var dl=e.target.closest("li.dlv");
+  if(dl){var did=dl.getAttribute("data-s4"),pc=dl.closest(".pcard"),pp=PR[+pc.getAttribute("data-p")],dd=pp.deliverables.filter(function(x){return x.id===did})[0];if(!dd)return;
+   s4t[did]=e.target.checked?1:0;store(SKEY,s4t);
+   var tmp=document.createElement("ul");tmp.innerHTML=dHtml(dd);var nl=tmp.firstChild;dl.parentNode.replaceChild(nl,dl);
+   if(e.target.checked){var c=centerOf(nl.querySelector("input"));burst(c[0],c[1],"small");chime(false);nl.classList.add("pop","shine")}
+   s4refresh(pp);
+   if(pp.deliverables.every(dDone))setTimeout(function(){celebrate(pc,pp.name+" has every Stage 4 deliverable done!")},450);
+   return}
   var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id");
   if(!e.target.checked){ticks[id]=0;store(MKEY,ticks);draw();return}
   var card=li.closest(".pcard"),p=PR[+card.getAttribute("data-p")];
