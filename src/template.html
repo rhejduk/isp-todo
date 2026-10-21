@@ -301,6 +301,20 @@ body.calm .dave-hero .lamp{opacity:.6}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
 @media (prefers-reduced-motion:reduce){.ambient,.cloud{display:none}.flower,.flower .head,.sun,.shimmer-text,.panel{animation:none!important}li.task.leaving{transition-duration:.01s!important;transition-delay:0s!important}}
+/* Daily Brief tab */
+.br-hero h2{margin:0}
+.br-day{display:flex;align-items:center;gap:10px;margin:18px 4px 6px}
+.br-day h3{margin:0;font-size:1.02rem;color:var(--plum)}
+li.task.brief .when{display:block;font-size:.78rem;color:var(--soft);font-weight:700;margin-bottom:2px}
+li.task.brief .what{display:block}
+li.task.brief ul.bul{margin:6px 0 4px;padding-left:18px;font-size:.9rem}
+li.task.brief ul.bul li{margin:2px 0}
+li.task.brief .next{font-size:.88rem;margin:6px 0 2px;padding:6px 10px;border-radius:12px;background:rgba(227,212,255,.35)}
+li.task.brief .next b{color:var(--plum2)}
+li.task.brief .chips{margin-top:6px}
+li.task.brief .srcs{margin-top:6px}
+li.task.brief.done ul.bul,li.task.brief.done .next{opacity:.6}
+@media (max-width:520px){nav.tabs{flex-wrap:wrap;border-radius:22px;justify-content:center}}
 /* Stage 4 deliverables (Marketing tab) */
 .s4{margin:10px 0 6px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,#f6f1ff,#fff7fb);border:1px solid var(--line);min-width:0}
 .s4bar{position:relative;display:flex;height:12px;border-radius:999px;background:#efe7f7;overflow:hidden}
@@ -360,6 +374,7 @@ li.task.dlv .src{display:block;font-size:.76rem;color:#8b7a9c}
     <button role="tab" data-tab="projects">Projects<span class="n" id="nProj"></span></button>
     <button role="tab" data-tab="marketing">Marketing<span class="n" id="nMkt"></span></button>
     <button role="tab" data-tab="dave">Talk with Dave<span class="n" id="nDave"></span></button>
+    <button role="tab" data-tab="brief">Daily Brief<span class="n" id="nBrief"></span></button>
     <button role="tab" data-tab="standup">Standup</button>
    </nav>
   </div>
@@ -369,6 +384,7 @@ li.task.dlv .src{display:block;font-size:.76rem;color:#8b7a9c}
   <section class="panel" id="tab-projects"></section>
   <section class="panel" id="tab-marketing"></section>
   <section class="panel" id="tab-dave"></section>
+  <section class="panel" id="tab-brief"></section>
   <section class="panel" id="tab-standup"></section>
   <footer id="foot"></footer>
  </main>
@@ -399,7 +415,7 @@ var SVGNS="http://www.w3.org/2000/svg";
    Remote doc (AES-GCM encrypted with a key derived from the page password): {v:1,s:{lsKey:{id:[value|null,ts]}}}.
    Merge = last write wins per item by ts; on a tie a checked value beats an unchecked one beats a deletion,
    so pre-sync ticks (ts 0) are a union and a stale device can never wipe them. null = unticked (tombstone). */
-var SYNC_KEYS=["isp-todo-daily-ticks","isp-todo-daily-wip","isp-todo-mkt-ticks","isp-todo-mkt-wip","isp-todo-s4-ticks","isp-todo-dave-ticks","isp-todo-dave-wip"];
+var SYNC_KEYS=["isp-todo-daily-ticks","isp-todo-daily-wip","isp-todo-mkt-ticks","isp-todo-mkt-wip","isp-todo-s4-ticks","isp-todo-dave-ticks","isp-todo-dave-wip","isp-todo-brief-ticks"];
 var SMETA="isp-todo-sync-meta",SYNC_HOOKS=[],TOMB_DAYS=180;
 var Sync=(function(){
  var cfg=null,ck=null,busy=false,again=false,pushT=0,lastOk=0,state="off",lastErr="";
@@ -415,7 +431,7 @@ var Sync=(function(){
   if(any){store(SMETA,m);schedule(400)}
  }
  function localDoc(){var m=meta(),s={};SYNC_KEYS.forEach(function(k){var v=load(k),t=m.t[k]||{},o=s[k]={};Object.keys(v).forEach(function(id){o[id]=[v[id],t[id]||0]});Object.keys(t).forEach(function(id){if(!v.hasOwnProperty(id))o[id]=[null,t[id]]})});return {v:1,s:s}}
- function mergeDocs(a,b){var out={v:1,s:{}},cut=Date.now()-TOMB_DAYS*864e5;SYNC_KEYS.forEach(function(k){var x=(a.s||{})[k]||{},y=(b.s||{})[k]||{},o=out.s[k]={};Object.keys(x).concat(Object.keys(y)).forEach(function(id){if(o[id])return;var w=win(x[id],y[id]);if(w[0]===null&&w[1]<cut)return;o[id]=[w[0],w[1]]})});return out}
+ function mergeDocs(a,b){var out={v:1,s:{}},cut=Date.now()-TOMB_DAYS*864e5;SYNC_KEYS.forEach(function(k){var x=(a.s||{})[k]||{},y=(b.s||{})[k]||{},o=out.s[k]={};Object.keys(x).concat(Object.keys(y)).forEach(function(id){if(o[id])return;var w=win(x[id],y[id]);if(w[0]===null&&w[1]<cut)return;o[id]=[w[0],w[1]]})});Object.keys(b.s||{}).forEach(function(k){if(!out.s.hasOwnProperty(k))out.s[k]=b.s[k]});return out}
  function applyLocal(doc){var m=meta(),ui=false;SYNC_KEYS.forEach(function(k){var o=doc.s[k]||{},v={},t={};Object.keys(o).forEach(function(id){t[id]=o[id][1];if(o[id][0]!==null)v[id]=o[id][0]});if(canon(v)!==canon(load(k))){ui=true;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}m.t[k]=t});store(SMETA,m);return ui}
  function key(){if(ck)return ck;ck=crypto.subtle.importKey("raw",b64d(cfg.k),{name:"AES-GCM"},false,["encrypt","decrypt"]);return ck}
  function url(){return cfg.u.replace(/\/$/,"")+"/"+cfg.id}
@@ -858,6 +874,45 @@ function renderDave(V){
  draw();
 }
 
+/* ---------- Daily Brief (incoming news, see DAILY_BRIEF.md) ---------- */
+var BKEY="isp-todo-brief-ticks";
+function renderBrief(B){
+ B=B||{meta:{},entries:[]};var ticks=load(BKEY),E=(B.entries||[]).slice().sort(function(a,b){return new Date(b.at)-new Date(a.at)}),el=$("#tab-brief"),drawT=0;
+ function when(iso){var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"})+" ET"}
+ function dayLbl(iso){var d=new Date(iso);if(isNaN(d))return "";var k=etDate(d.getTime()),t=etDate(),y=etDate(Date.now()-864e5);var s=d.toLocaleDateString("en-US",{timeZone:"America/New_York",weekday:"long",month:"short",day:"numeric"});return k===t?"Today, "+s:k===y?"Yesterday, "+s:s}
+ function itemHtml(u){
+  var on=!!ticks[u.id];
+  var srcs=(u.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
+  return '<li class="task brief'+(on?' done':'')+'" data-id="'+esc(u.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="when">'+when(u.at)+(u.kind?' · '+esc(u.kind):'')+'</span><span class="what">'+esc(u.headline)+'</span>'+
+   ((u.bullets||[]).length?'<ul class="bul">'+u.bullets.map(function(b){return '<li>'+esc(b)+'</li>'}).join("")+'</ul>':'')+
+   (u.next_step?'<div class="next"><b>Next step:</b> '+esc(u.next_step)+'</div>':'')+
+   '<div class="chips"><span class="chip proj">'+esc(u.project||"")+'</span>'+(on?'<span class="chip okc">Done</span>':'')+'</div>'+
+   (srcs?'<div class="srcs">'+srcs+'</div>':'')+'</div></li>';
+ }
+ function draw(){
+  clearTimeout(drawT);
+  var open=E.filter(function(u){return !ticks[u.id]}).length,m=B.meta||{},h='',groups=[],idx={};
+  E.forEach(function(u){var k=etDate(new Date(u.at).getTime());if(!idx[k]){idx[k]={k:k,lbl:dayLbl(u.at),items:[]};groups.push(idx[k])}idx[k].items.push(u)});
+  h='<div class="card br-hero"><h2>Daily Brief</h2><p class="sub">Incoming news, newest first: supplier replies, quotes, Slack and email replies, and meeting prep. Check one off once I have handled the next step.</p>'+
+   '<div class="strip"><div><b>'+E.length+'</b><span>Updates</span></div><div><b>'+open+'</b><span>Open</span></div><div><b>'+(E.length-open)+'</b><span>Handled</span></div></div>'+
+   '<div class="srcline">'+(m.updated_at?'Updated '+fmtDate(m.updated_at)+'. ':'')+'Keeps the last '+esc(m.keep_days||30)+' days.</div>'+
+   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>';
+  if(!E.length)h+='<div class="card"><p class="note">No updates yet. New supplier replies, quotes and meeting prep will land here.</p></div>';
+  groups.forEach(function(g){var o=g.items.filter(function(u){return !ticks[u.id]}).length;
+   h+='<div class="br-day">'+bloom("#cdb8f2")+'<h3>'+esc(g.lbl)+'</h3><span class="pill">'+o+' open</span></div><div class="card"><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul></div>'});
+  el.innerHTML=h;$("#nBrief").textContent=open||"";setHide(hideDone);
+ }
+ el.addEventListener("change",function(e){
+  var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id");
+  if(!e.target.checked){delete ticks[id];store(BKEY,ticks);draw();return}
+  ticks[id]=Date.now();store(BKEY,ticks);var c=centerOf(e.target);burst(c[0],c[1],"small");chime(false);
+  li.classList.add("shine","done");drawT=setTimeout(draw,reduced()?0:650);
+ });
+ el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone)});
+ SYNC_HOOKS.push(function(){ticks=load(BKEY);draw()});
+ draw();
+}
+
 /* ---------- Standup ---------- */
 function renderStandup(S){
  var el=$("#tab-standup");
@@ -906,13 +961,13 @@ document.addEventListener("click",function(e){var b=e.target.closest&&e.target.c
 
 function render(data){
  Sync.start(data.sync);SYNC_HOOKS.push(function(){if(PJ)renderProjects()});
- renderDaily(data.daily);renderProjects(data.projects);renderMarketing(data.marketing);renderDave(data.dave);renderStandup(data.standup);
+ renderDaily(data.daily);renderProjects(data.projects);renderMarketing(data.marketing);renderDave(data.dave);renderBrief(data.brief);renderStandup(data.standup);
  $("#foot").innerHTML="Built "+esc(fmtDate(data.built_at))+". <span id=\"syncState\"></span>";Sync.refresh();
  var tabs=$$("nav.tabs button");
- function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();
+ function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","brief","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();
   var k=name==="daily"?"daily":name==="marketing"?"mkt":null;if(k&&vineMem[k]!=null){var v=vineMem[k];vineMem[k]=0;growVine($("#tab-"+name),k,v)}}
  tabs.forEach(function(b){b.addEventListener("click",function(){show(b.getAttribute("data-tab"));history.replaceState(null,"","#"+b.getAttribute("data-tab"))})});
- var h=location.hash.slice(1);var TABS=["daily","projects","marketing","dave","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));
+ var h=location.hash.slice(1);var TABS=["daily","projects","marketing","dave","brief","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));
 }
 })();
 </script>
