@@ -385,7 +385,7 @@ li.task.dlv .src{display:block;font-size:.76rem;color:#8b7a9c}
 var $=function(s,r){return (r||document).querySelector(s)},$$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
 var PREF="isp-todo-prefs";
 function load(k){try{return JSON.parse(localStorage.getItem(k)||"{}")||{}}catch(e){return {}}}
-function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function store(k,v){var old=(typeof Sync!=="undefined"&&Sync&&SYNC_KEYS.indexOf(k)>=0)?load(k):null;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}if(old)Sync.changed(k,old,v)}
 function pref(k,v){var p=load(PREF);if(arguments.length<2)return p[k];p[k]=v;store(PREF,p)}
 var RM=window.matchMedia?window.matchMedia("(prefers-reduced-motion: reduce)"):{matches:false};
 function reduced(){return RM.matches}
@@ -393,6 +393,75 @@ function calm(){return document.body.classList.contains("calm")}
 function rnd(a,b){return a+Math.random()*(b-a)}
 function pick(a){return a[Math.floor(Math.random()*a.length)]}
 var SVGNS="http://www.w3.org/2000/svg";
+
+/* ---------- cross device sync of checkmarks (see SYNC.md) ---------- */
+/* localStorage stays the offline cache. Every change to a synced key is stamped per item in SMETA.
+   Remote doc (AES-GCM encrypted with a key derived from the page password): {v:1,s:{lsKey:{id:[value|null,ts]}}}.
+   Merge = last write wins per item by ts; on a tie a checked value beats an unchecked one beats a deletion,
+   so pre-sync ticks (ts 0) are a union and a stale device can never wipe them. null = unticked (tombstone). */
+var SYNC_KEYS=["isp-todo-daily-ticks","isp-todo-daily-wip","isp-todo-mkt-ticks","isp-todo-mkt-wip","isp-todo-s4-ticks","isp-todo-dave-ticks","isp-todo-dave-wip"];
+var SMETA="isp-todo-sync-meta",SYNC_HOOKS=[],TOMB_DAYS=180;
+var Sync=(function(){
+ var cfg=null,ck=null,busy=false,again=false,pushT=0,lastOk=0,state="off",lastErr="";
+ function meta(){var m=load(SMETA);m.t=m.t||{};m.mig=m.mig||{};return m}
+ function canon(o){if(o===null||typeof o!=="object")return JSON.stringify(o);if(Array.isArray(o))return "["+o.map(canon).join(",")+"]";return "{"+Object.keys(o).sort().map(function(k){return JSON.stringify(k)+":"+canon(o[k])}).join(",")+"}"}
+ function rank(v){return v===null||v===undefined?0:(v===0||v===false||v==="")?1:2}
+ function win(a,b){if(!a)return b;if(!b)return a;if(a[1]!==b[1])return a[1]>b[1]?a:b;var ra=rank(a[0]),rb=rank(b[0]);if(ra!==rb)return ra>rb?a:b;return canon(a[0])>=canon(b[0])?a:b}
+ function legacyTs(v){return typeof v==="number"&&v>1e12&&v<Date.now()+864e5?v:0}
+ function migrate(){var m=meta(),ch=false;SYNC_KEYS.forEach(function(k){if(m.mig[k])return;var v=load(k),t=m.t[k]=m.t[k]||{};Object.keys(v).forEach(function(id){if(!(id in t))t[id]=legacyTs(v[id])});m.mig[k]=Date.now();ch=true});if(ch)store(SMETA,m)}
+ function changed(k,o,n){
+  var m=meta(),t=m.t[k]=m.t[k]||{},now=Date.now(),any=false;
+  Object.keys(o).concat(Object.keys(n)).forEach(function(id){var a=o.hasOwnProperty(id)?canon(o[id]):"~",b=n.hasOwnProperty(id)?canon(n[id]):"~";if(a===b)return;t[id]=Math.max(now,(t[id]||0)+1);any=true});
+  if(any){store(SMETA,m);schedule(400)}
+ }
+ function localDoc(){var m=meta(),s={};SYNC_KEYS.forEach(function(k){var v=load(k),t=m.t[k]||{},o=s[k]={};Object.keys(v).forEach(function(id){o[id]=[v[id],t[id]||0]});Object.keys(t).forEach(function(id){if(!v.hasOwnProperty(id))o[id]=[null,t[id]]})});return {v:1,s:s}}
+ function mergeDocs(a,b){var out={v:1,s:{}},cut=Date.now()-TOMB_DAYS*864e5;SYNC_KEYS.forEach(function(k){var x=(a.s||{})[k]||{},y=(b.s||{})[k]||{},o=out.s[k]={};Object.keys(x).concat(Object.keys(y)).forEach(function(id){if(o[id])return;var w=win(x[id],y[id]);if(w[0]===null&&w[1]<cut)return;o[id]=[w[0],w[1]]})});return out}
+ function applyLocal(doc){var m=meta(),ui=false;SYNC_KEYS.forEach(function(k){var o=doc.s[k]||{},v={},t={};Object.keys(o).forEach(function(id){t[id]=o[id][1];if(o[id][0]!==null)v[id]=o[id][0]});if(canon(v)!==canon(load(k))){ui=true;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}m.t[k]=t});store(SMETA,m);return ui}
+ function key(){if(ck)return ck;ck=crypto.subtle.importKey("raw",b64d(cfg.k),{name:"AES-GCM"},false,["encrypt","decrypt"]);return ck}
+ function url(){return cfg.u.replace(/\/$/,"")+"/"+cfg.id}
+ function pull(){
+  return fetch(url()+"?_="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("read "+r.status);return r.text()}).then(function(txt){
+   txt=(txt||"").trim();if(!txt)return {v:1,s:{}};var e;try{e=JSON.parse(txt)}catch(x){return {v:1,s:{},bad:1}}
+   if(!e||!e.iv||!e.ct)return {v:1,s:{},bad:1};
+   return key().then(function(k){return crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(e.iv)},k,b64d(e.ct))}).then(function(pt){var d=JSON.parse(new TextDecoder().decode(pt));d.s=d.s||{};return d},function(){return {v:1,s:{},bad:1}});
+  });
+ }
+ function push(doc){
+  var iv=crypto.getRandomValues(new Uint8Array(12));
+  return key().then(function(k){return crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,new TextEncoder().encode(JSON.stringify(doc)))}).then(function(ct){
+   var body=new URLSearchParams();body.set("key",cfg.id);body.set("value",JSON.stringify({v:1,iv:b64e(iv),ct:b64e(ct),at:Date.now()}));
+   return fetch(cfg.u.replace(/\/$/,"")+"/update",{method:"POST",body:body,cache:"no-store"});
+  }).then(function(r){if(!r.ok)throw new Error("write "+r.status);return r.json()}).then(function(j){if(!j||j.status!==1)throw new Error("write refused")});
+ }
+ function run(){
+  if(!cfg)return Promise.resolve();
+  if(busy){again=true;return Promise.resolve()}
+  busy=true;again=false;setStatus("syncing");
+  var remote;
+  return pull().then(function(r){remote=r;var merged=mergeDocs(localDoc(),remote);var ui=applyLocal(merged);if(ui)SYNC_HOOKS.forEach(function(f){try{f()}catch(e){}});
+   var base=remote.bad?null:canon(mergeDocs({v:1,s:{}},remote));return base===canon(merged)?null:push(merged)})
+  .then(function(){lastOk=Date.now();lastErr="";setStatus("ok")},function(e){lastErr=String(e&&e.message||e);setStatus(navigator.onLine===false?"offline":"error")})
+  .then(function(){busy=false;if(again)schedule(200)});
+ }
+ function schedule(ms){clearTimeout(pushT);pushT=setTimeout(run,ms)}
+ function setStatus(s){state=s;var el=document.getElementById("syncState");if(!el)return;
+  el.textContent=s==="ok"?"Checkmarks sync across your devices. Last synced "+new Date(lastOk).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})+".":
+   s==="syncing"?(lastOk?el.textContent:"Syncing checkmarks..."):
+   s==="offline"?"Offline right now. Checkmarks are saved on this device and will sync when you are back online.":
+   s==="error"?"Could not reach the sync service. Checkmarks are saved on this device and will sync on the next try.":"Checkmarks are saved on this device.";
+  el.setAttribute("data-state",s)}
+ function start(c){
+  if(!c||!c.u||!c.id||!c.k||!window.fetch||!window.crypto||!crypto.subtle){setStatus("off");return}
+  cfg=c;migrate();run();
+  setInterval(function(){if(!document.hidden)run()},60000);
+  window.addEventListener("focus",function(){schedule(150)});
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)schedule(150)});
+  window.addEventListener("online",function(){schedule(150)});
+  window.addEventListener("storage",function(e){if(SYNC_KEYS.indexOf(e.key)>=0)SYNC_HOOKS.forEach(function(f){try{f()}catch(x){}})});
+ }
+ window.ispSync={now:function(){return run()},status:function(){return {state:state,lastOk:lastOk,error:lastErr}}};
+ return {start:start,changed:changed,refresh:function(){setStatus(state)}};
+})();
 
 /* ---------- greeting ---------- */
 function etHour(){try{return parseInt(new Date().toLocaleString("en-US",{timeZone:"America/New_York",hour:"numeric",hour12:false}),10)%24}catch(e){return new Date().getHours()}}
@@ -630,6 +699,7 @@ function renderDaily(D){
   b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:650);
  });
  el.addEventListener("toggle",function(e){if(e.target.parentNode&&e.target.parentNode.id==="wipGroup")pref("wipClosed",!e.target.open)},true);
+ SYNC_HOOKS.push(function(){ticks=load(DKEY);wip=load(WKEY);draw()});
  draw();
 }
 
@@ -718,7 +788,8 @@ function renderMarketing(M){
   var b=e.target.closest(".wip-btn");if(b){var li=b.closest("li.task"),id=li.getAttribute("data-id");
    if(wip[id]){delete wip[id];store(MWKEY,wip);draw();return}
    wip[id]=Date.now();store(MWKEY,wip);var c=centerOf(b);burst(c[0],c[1],"small");b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:600);return}
-  if(e.target.classList.contains("hideBtn"))setHide(!hideDone);if(e.target.classList.contains("clearBtn")&&confirm("Clear the ticks you made on this device? Tasks marked done by the refresh stay done.")){ticks={};store(MKEY,ticks);draw()}});
+  if(e.target.classList.contains("hideBtn"))setHide(!hideDone);if(e.target.classList.contains("clearBtn")&&confirm("Clear the meeting task ticks you made? This clears them on all your devices. Tasks marked done by the refresh stay done.")){ticks={};store(MKEY,ticks);draw()}});
+ SYNC_HOOKS.push(function(){ticks=load(MKEY);wip=load(MWKEY);s4t=load(SKEY);draw()});
  draw();
 }
 
@@ -783,6 +854,7 @@ function renderDave(V){
   b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:650);
  });
  el.addEventListener("toggle",function(e){if(e.target.parentNode&&e.target.parentNode.id==="daveWip")pref("daveWipClosed",!e.target.open)},true);
+ SYNC_HOOKS.push(function(){ticks=load(VKEY);wip=load(VWKEY);draw()});
  draw();
 }
 
@@ -833,8 +905,9 @@ function renderProjects(D){
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-jump]");if(!b)return;var t=document.getElementById("pj-"+b.getAttribute("data-jump"));if(t)t.scrollIntoView({behavior:reduced()?"auto":"smooth",block:"start"})});
 
 function render(data){
+ Sync.start(data.sync);SYNC_HOOKS.push(function(){if(PJ)renderProjects()});
  renderDaily(data.daily);renderProjects(data.projects);renderMarketing(data.marketing);renderDave(data.dave);renderStandup(data.standup);
- $("#foot").textContent="Built "+fmtDate(data.built_at)+". Checkmarks are saved on this device.";
+ $("#foot").innerHTML="Built "+esc(fmtDate(data.built_at))+". <span id=\"syncState\"></span>";Sync.refresh();
  var tabs=$$("nav.tabs button");
  function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();
   var k=name==="daily"?"daily":name==="marketing"?"mkt":null;if(k&&vineMem[k]!=null){var v=vineMem[k];vineMem[k]=0;growVine($("#tab-"+name),k,v)}}
