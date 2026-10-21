@@ -332,6 +332,34 @@ li.bsub .st{flex:1;min-width:0}
 li.bsub .chip{flex:none;align-self:center}
 li.bsub.done .st{text-decoration:line-through;text-decoration-color:rgba(224,120,159,.6);color:#9a89ab}
 @media (max-width:520px){li.bsub{flex-wrap:wrap}li.bsub .st{flex:1 1 calc(100% - 30px)}li.bsub .chip{margin-left:29px}}
+/* Shipping tab (see SHIPPING_TAB.md) */
+.sh-card h3{margin:0;font:700 1.14rem/1.3 var(--f-head);color:var(--plum)}
+.sh-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.sh-ref{font-size:.78rem;font-weight:800;color:#2c5a8a;background:#ddeeff;border-radius:999px;padding:1px 10px;white-space:nowrap}
+.sh-prog{margin:10px 0 4px}
+.sh-bar{height:12px;border-radius:999px;background:rgba(126,96,160,.12);overflow:hidden}
+.sh-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#f7c8d8,#cdb8f2 60%,#bfe8d4)}
+.sh-steps{display:flex;justify-content:space-between;gap:4px;margin-top:5px;font-size:.7rem;font-weight:700;color:var(--soft)}
+.sh-steps span.on{color:var(--plum)}
+.sh-steps span.cur{color:#a4305d}
+.sh-line{font-size:.85rem;color:var(--soft);margin-top:6px}
+.sh-line b{color:var(--plum2)}
+.sh-sum p{margin:6px 0}
+.sh-todos{list-style:none;margin:6px 0 0;padding:0}
+li.sh-td{display:flex;align-items:flex-start;gap:9px;padding:6px 0;border-top:1px dashed rgba(126,96,160,.18);font-size:.92rem}
+li.sh-td:first-child{border-top:0}
+li.sh-td .cb{width:20px;height:20px}
+li.sh-td .cb span{border-radius:7px}
+li.sh-td .cb span::after{left:5px;top:2px;width:5px;height:9px}
+li.sh-td .st{flex:1;min-width:0}
+li.sh-td .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+li.sh-td.done .t{text-decoration:line-through;text-decoration-color:rgba(224,120,159,.6);color:#9a89ab}
+.chip.late{background:#ffd0dc;color:#8f1f4a}
+body.hide-done li.sh-td.done{display:none}
+.sh-partners{width:100%;border-collapse:collapse;font-size:.86rem}
+.sh-partners td{padding:6px 4px;border-top:1px dashed rgba(126,96,160,.18);vertical-align:top}
+.sh-partners td:first-child{font-weight:800;color:var(--plum2)}
+@media (max-width:520px){.sh-steps{font-size:.6rem}.sh-steps span:not(.cur){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.sh-partners td{display:block;border-top:0;padding:1px 4px}.sh-partners tr{display:block;border-top:1px dashed rgba(126,96,160,.18);padding:5px 0}}
 @media (max-width:520px){nav.tabs{flex-wrap:wrap;border-radius:22px;justify-content:center}}
 /* Stage 4 deliverables (Marketing tab) */
 .s4{margin:10px 0 6px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,#f6f1ff,#fff7fb);border:1px solid var(--line);min-width:0}
@@ -393,6 +421,7 @@ li.task.dlv .src{display:block;font-size:.76rem;color:#8b7a9c}
     <button role="tab" data-tab="marketing">Marketing<span class="n" id="nMkt"></span></button>
     <button role="tab" data-tab="dave">Talk with Dave<span class="n" id="nDave"></span></button>
     <button role="tab" data-tab="brief">Daily Brief<span class="n" id="nBrief"></span></button>
+    <button role="tab" data-tab="shipping">Shipping<span class="n" id="nShip"></span></button>
     <button role="tab" data-tab="standup">Standup</button>
    </nav>
   </div>
@@ -403,6 +432,7 @@ li.task.dlv .src{display:block;font-size:.76rem;color:#8b7a9c}
   <section class="panel" id="tab-marketing"></section>
   <section class="panel" id="tab-dave"></section>
   <section class="panel" id="tab-brief"></section>
+  <section class="panel" id="tab-shipping"></section>
   <section class="panel" id="tab-standup"></section>
   <footer id="foot"></footer>
  </main>
@@ -433,7 +463,7 @@ var SVGNS="http://www.w3.org/2000/svg";
    Remote doc (AES-GCM encrypted with a key derived from the page password): {v:1,s:{lsKey:{id:[value|null,ts]}}}.
    Merge = last write wins per item by ts; on a tie a checked value beats an unchecked one beats a deletion,
    so pre-sync ticks (ts 0) are a union and a stale device can never wipe them. null = unticked (tombstone). */
-var SYNC_KEYS=["isp-todo-daily-ticks","isp-todo-daily-wip","isp-todo-mkt-ticks","isp-todo-mkt-wip","isp-todo-s4-ticks","isp-todo-dave-ticks","isp-todo-dave-wip","isp-todo-brief-ticks"];
+var SYNC_KEYS=["isp-todo-daily-ticks","isp-todo-daily-wip","isp-todo-mkt-ticks","isp-todo-mkt-wip","isp-todo-s4-ticks","isp-todo-dave-ticks","isp-todo-dave-wip","isp-todo-brief-ticks","isp-todo-ship-ticks"];
 var SMETA="isp-todo-sync-meta",SYNC_HOOKS=[],TOMB_DAYS=180;
 var Sync=(function(){
  var cfg=null,ck=null,busy=false,again=false,pushT=0,lastOk=0,state="off",lastErr="";
@@ -952,6 +982,62 @@ function renderBrief(B){
  draw();
 }
 
+/* ---------- Shipping ---------- */
+/* One card per shipment. To dos linked to Daily use that to do's id and key (isp-todo-daily-ticks), so ticking here
+   ticks it on Daily and the other way round. Shipping only items (ship- ids) tick in isp-todo-ship-ticks. */
+var SHKEY="isp-todo-ship-ticks",SHIP_DRAW=null;
+function renderShipping(S){
+ S=S||{meta:{},cards:[],partners:[]};var C=S.cards||[],m=S.meta||{},ST=m.stages||[],el=$("#tab-shipping"),drawT=0;
+ var st,dt,mt;function reload(){st=load(SHKEY);dt=load(DKEY);mt=load(MKEY)}reload();
+ var SRCN={daily:"Daily To Do",marketing:"Marketing",ship:"Shipping only"};
+ function isDone(t){if(t.src==="daily")return !!dt[t.id];if(t.src==="marketing")return mt.hasOwnProperty(t.id)?mt[t.id]===1:!!t.done;return !!st[t.id]}
+ function find(id){for(var i=0;i<C.length;i++){var T=C[i].todos||[];for(var j=0;j<T.length;j++)if(T[j].id===id)return T[j]}return null}
+ var today=etDate();
+ function dueChip(d){if(!d)return "";var late=d<today;var x=new Date(d+"T12:00:00");var lab=isNaN(x)?d:x.toLocaleDateString("en-US",{month:"short",day:"numeric"});return '<span class="chip '+(late?'late':'due')+'">'+(late?'Overdue, was due ':'Due ')+esc(lab)+'</span>'}
+ function tdHtml(t){var on=isDone(t);return '<li class="sh-td'+(on?' done':'')+'" data-td="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="st"><span class="t">'+esc(t.text)+'</span><div class="meta">'+dueChip(on?"":t.due)+(t.flag?'<span class="chip flag">'+esc(t.flag)+'</span>':'')+'<span class="chip src">'+esc(SRCN[t.src]||t.src)+'</span>'+(on?'<span class="chip okc">Done</span>':'')+'</div></div></li>'}
+ function prog(c){if(c.stage==null)return "";var i=ST.indexOf(c.stage),pct=Math.round((i+1)/ST.length*100);
+  return '<div class="sh-prog" role="img" aria-label="'+esc(c.stage)+', '+pct+' percent"><div class="sh-bar"><i style="width:'+pct+'%"></i></div><div class="sh-steps">'+ST.map(function(s,k){return '<span class="'+(k===i?'cur':k<i?'on':'')+'">'+esc(s)+'</span>'}).join("")+'</div></div>'}
+ function draw(){
+  clearTimeout(drawT);reload();
+  var openT=0,late=0,flags=0;C.forEach(function(c){(c.todos||[]).forEach(function(t){if(!isDone(t)){openT++;if(t.due&&t.due<today)late++}});flags+=(c.flags||[]).length});
+  var h='<div class="card"><h2>Shipping</h2><p class="sub">Every shipment I am coordinating, where it stands, and what I need to do next. Boxes linked to my Daily To Do are the same to dos, so checking one here checks it there too.</p>'+
+   '<div class="strip"><div><b>'+C.length+'</b><span>Shipments</span></div><div><b>'+openT+'</b><span>Open to dos</span></div><div><b>'+late+'</b><span>Overdue</span></div><div><b>'+flags+'</b><span>Flags</span></div></div>'+
+   ((m.notes||[]).length?'<ul class="pj-notes">'+m.notes.map(function(n){return '<li>'+esc(n)+'</li>'}).join("")+'</ul>':'')+
+   '<div class="srcline">'+(m.updated_at?'Updated '+fmtDate(m.updated_at)+'. ':'')+'Checked: '+esc(m.sources_checked||"")+'</div>'+
+   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>';
+  C.forEach(function(c){
+   var T=(c.todos||[]).slice().sort(function(a,b){return (isDone(a)?1:0)-(isDone(b)?1:0)}),open=T.filter(function(t){return !isDone(t)}).length,W=c.waiting||[];
+   h+='<div class="card pjcard sh-card" id="sh-'+esc(c.id)+'"><div class="sh-top"><h3>'+esc(c.title)+'</h3>'+(c.refs||[]).map(function(r){return '<span class="sh-ref">'+esc(r)+'</span>'}).join("")+'</div>'+
+    '<div class="chips" style="margin-top:6px"><span class="chip proj">'+esc(c.project)+'</span>'+(c.stage!=null?'<span class="chip">'+esc(c.stage)+'</span>':'')+(c.flags||[]).map(function(f){return '<span class="chip flag">'+esc(f)+'</span>'}).join("")+'</div>'+
+    prog(c)+
+    ((c.route||c.mode)?'<div class="sh-line">'+(c.route?'<b>Route:</b> '+esc(c.route)+'. ':'')+(c.mode?'<b>Mode:</b> '+esc(c.mode)+'.':'')+'</div>':'')+
+    (c.partner?'<div class="sh-line"><b>Forwarder:</b> '+esc(c.partner)+'</div>':'')+
+    ((c.dates||[]).length?'<div class="sh-line">'+c.dates.map(function(d){return '<b>'+esc(d.label)+':</b> '+esc(d.value)}).join(". ")+'</div>':'')+
+    '<div class="pjsec st sh-sum"><h4>Where it stands</h4>'+(c.summary||[]).map(function(p){return '<p>'+esc(p)+'</p>'}).join("")+'</div>'+
+    '<div class="pjsec td"><h4>Shipping to dos<span>'+open+' open</span></h4>'+(T.length?'<ul class="sh-todos">'+T.map(tdHtml).join("")+'</ul>':'<p class="note" style="margin-left:0">Nothing open.</p>')+'</div>'+
+    (W.length?'<div class="pjsec wt"><h4>Waiting on</h4><ul class="plain">'+W.map(function(w){return '<li><span class="t">'+esc(w.text)+'</span><div class="meta">'+(w.who?'<span class="chip wait">'+esc(w.who)+'</span>':'')+(w.since?'<span class="chip">'+esc(w.since)+'</span>':'')+'</div></li>'}).join("")+'</ul></div>':'')+
+    ((c.sources||[]).length?'<details class="pjsrc"><summary>Sources</summary>'+c.sources.map(function(s){var u=safeUrl(s.url);return u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(s.label)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("")+'</details>':'')+
+    '</div>';
+  });
+  var P=S.partners||[];
+  if(P.length)h+='<div class="card"><details><summary><b>Shipping partners and contacts</b></summary><table class="sh-partners">'+P.map(function(p){return '<tr><td>'+esc(p.company)+'</td><td>'+esc(p.person)+'</td><td>'+(p.email?'<a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a>':'')+'</td><td>'+esc(p.role)+'</td></tr>'}).join("")+'</table></details></div>';
+  el.innerHTML=h;$("#nShip").textContent=openT||"";setHide(hideDone);
+ }
+ function others(){SYNC_HOOKS.forEach(function(f){if(f!==hook)try{f()}catch(e){}})}
+ el.addEventListener("change",function(e){
+  var li=e.target.closest("li.sh-td");if(!li)return;var id=li.getAttribute("data-td"),t=find(id),on=e.target.checked;if(!t)return;reload();
+  if(t.src==="daily"){if(on){dt[id]=Date.now();store(DKEY,dt);var w=load(WKEY);if(w[id]){delete w[id];store(WKEY,w)}}else{delete dt[id];store(DKEY,dt)}}
+  else if(t.src==="marketing"){mt[id]=on?1:0;store(MKEY,mt);if(on){var mw=load(MWKEY);if(mw[id]){delete mw[id];store(MWKEY,mw)}}}
+  else{if(on)st[id]=Date.now();else delete st[id];store(SHKEY,st)}
+  others();
+  if(on){var c=centerOf(e.target);burst(c[0],c[1],"small");chime(false);li.classList.add("shine")}
+  drawT=setTimeout(draw,on&&!reduced()?650:0);
+ });
+ el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone)});
+ var hook=function(){draw()};SYNC_HOOKS.push(hook);SHIP_DRAW=draw;
+ draw();
+}
+
 /* ---------- Standup ---------- */
 function renderStandup(S){
  var el=$("#tab-standup");
@@ -1000,13 +1086,13 @@ document.addEventListener("click",function(e){var b=e.target.closest&&e.target.c
 
 function render(data){
  Sync.start(data.sync);SYNC_HOOKS.push(function(){if(PJ)renderProjects()});
- renderDaily(data.daily);renderProjects(data.projects);renderMarketing(data.marketing);renderDave(data.dave);renderBrief(data.brief);renderStandup(data.standup);
+ renderDaily(data.daily);renderProjects(data.projects);renderMarketing(data.marketing);renderDave(data.dave);renderBrief(data.brief);renderShipping(data.shipping);renderStandup(data.standup);
  $("#foot").innerHTML="Built "+esc(fmtDate(data.built_at))+". <span id=\"syncState\"></span>";Sync.refresh();
  var tabs=$$("nav.tabs button");
- function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","brief","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();if(name==="brief"&&BRIEF_DRAW)BRIEF_DRAW();
+ function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","brief","shipping","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();if(name==="brief"&&BRIEF_DRAW)BRIEF_DRAW();if(name==="shipping"&&SHIP_DRAW)SHIP_DRAW();
   var k=name==="daily"?"daily":name==="marketing"?"mkt":null;if(k&&vineMem[k]!=null){var v=vineMem[k];vineMem[k]=0;growVine($("#tab-"+name),k,v)}}
  tabs.forEach(function(b){b.addEventListener("click",function(){show(b.getAttribute("data-tab"));history.replaceState(null,"","#"+b.getAttribute("data-tab"))})});
- var h=location.hash.slice(1);var TABS=["daily","projects","marketing","dave","brief","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));
+ var h=location.hash.slice(1);var TABS=["daily","projects","marketing","dave","brief","shipping","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));
 }
 })();
 </script>

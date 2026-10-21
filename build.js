@@ -26,6 +26,8 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   // Daily Brief tab (see DAILY_BRIEF.md): incoming news, newest first, ids start with upd-
   const brief = fs.existsSync(path.join(ROOT, "data/daily_brief.json")) ? readJson("daily_brief.json") : { meta: {}, entries: [] };
   brief.entries = (brief.entries || []).slice().sort((a, b) => new Date(b.at) - new Date(a.at));
+  // Shipping tab (see SHIPPING_TAB.md): one card per shipment, to dos are Daily refs or ship- items
+  const shipping = fs.existsSync(path.join(ROOT, "data/shipping.json")) ? readJson("shipping.json") : { meta: {}, cards: [], partners: [] };
 
   // sanity checks: stable unique ids
   const kebab = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -88,6 +90,26 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const bAll = bIds.concat(briefSubIds);
   if (new Set(bAll).size !== bAll.length) throw new Error("brief: duplicate entry or sub ids");
   const bBad = bAll.filter((i) => !kebab.test(i)); if (bBad.length) throw new Error("brief: non kebab-case ids: " + bBad.join(", "));
+  // Shipping: resolve Daily/Marketing refs to live text (same id, same tick); ship only items need ship- ids
+  const shipIds = [], shipCardIds = (shipping.cards || []).map((c) => c.id), shipStages = (shipping.meta || {}).stages || [];
+  if (new Set(shipCardIds).size !== shipCardIds.length) throw new Error("shipping: duplicate card ids");
+  if (shipCardIds.some((i) => !kebab.test(i))) throw new Error("shipping: non kebab-case card ids");
+  for (const c of shipping.cards || []) {
+    if (!c.project || !c.title) throw new Error("shipping: project and title are required on " + c.id);
+    if (c.stage != null && !shipStages.includes(c.stage)) throw new Error("shipping: unknown stage " + c.stage + " on " + c.id);
+    c.todos = (c.todos || []).map((t) => {
+      if (t.ref) {
+        if (!["daily", "marketing"].includes(t.ref.src)) throw new Error("shipping: ref src must be daily or marketing on " + c.id);
+        const r = resolve(t.ref); if (!r) return null;
+        return { src: r.src, id: r.id, text: r.text, due: r.due || t.due || "", flag: t.flag || "", done: !!r.done };
+      }
+      if (!t.id || !/^ship-/.test(t.id) || !kebab.test(t.id)) throw new Error("shipping: ship only to do ids must be ship-<kebab> on " + c.id);
+      if (allTodo.has(t.id)) throw new Error("shipping: id collides with a to do id: " + t.id);
+      if (!t.text) throw new Error("shipping: " + t.id + " needs text");
+      shipIds.push(t.id); return { src: "ship", id: t.id, text: t.text, due: t.due || "", flag: t.flag || "" };
+    }).filter(Boolean);
+  }
+  if (new Set(shipIds).size !== shipIds.length) throw new Error("shipping: duplicate to do ids");
   if (missing.length) console.warn("projects: " + missing.length + " refs not found and dropped: " + missing.join(", "));
 
   // stable salt so "remember on this device" keeps working across rebuilds (salt is not secret)
@@ -100,7 +122,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const key = await subtle.deriveKey({ name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
   const hmac = (label) => require("crypto").createHmac("sha256", pw).update(label).digest();
   const sync = { u: SYNC_URL, id: "isptodo-" + hmac("isp-todo-sync-id-v1").toString("hex").slice(0, 40), k: b64(hmac("isp-todo-sync-enc-v1")) };
-  const payload = JSON.stringify({ daily, marketing, dave, standup, projects, brief, sync, built_at: new Date().toISOString() });
+  const payload = JSON.stringify({ daily, marketing, dave, standup, projects, brief, shipping, sync, built_at: new Date().toISOString() });
   const ct = await subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(payload));
 
   const blob = JSON.stringify({ v: 1, iter: ITER, salt: b64(salt), iv: b64(iv), ct: b64(new Uint8Array(ct)) });
@@ -109,16 +131,17 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const html = tpl.replace("/*__PAYLOAD__*/", () => blob);
 
   // leak guard: no task text, ids, or the password may appear in the output
-  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || []), ...u.subs.flatMap((x) => [x.id, x.text])])]
+  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || []), ...u.subs.flatMap((x) => [x.id, x.text])]), ...(shipping.cards || []).flatMap((c) => [c.title, ...(c.summary || []), ...c.todos.flatMap((t) => [t.id, t.text]), ...(c.waiting || []).map((w) => w.text)])]
     .filter((s) => typeof s === "string" && s.length >= 12);
   const leaks = probes.filter((s) => html.includes(s));
   if (leaks.length) throw new Error("plaintext leak guard tripped (" + leaks.length + " strings). Not writing index.html.");
 
   if (!tpl.includes("renderBrief(data.brief)") || !tpl.includes('"isp-todo-brief-ticks"')) throw new Error("template is missing the Daily Brief tab or its sync key (see DAILY_BRIEF.md)");
+  if (!tpl.includes("renderShipping(data.shipping)") || !tpl.includes('"isp-todo-ship-ticks"')) throw new Error("template is missing the Shipping tab or its sync key (see SHIPPING_TAB.md)");
   if (!tpl.includes("Sync.start(data.sync)")) throw new Error("template is missing the checkmark sync code (see SYNC.md)");
   fs.writeFileSync(OUT, html);
   const mDone = marketing.projects.flatMap((p) => p.tasks).filter((t) => t.d).length;
-  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, brief ${bIds.length} updates (${brief.entries.reduce((n, u) => n + u.subs.filter((x) => x.src !== "brief").length, 0)} linked sub items, ${briefSubIds.length} brief only), ${html.length} bytes`);
+  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, brief ${bIds.length} updates (${brief.entries.reduce((n, u) => n + u.subs.filter((x) => x.src !== "brief").length, 0)} linked sub items, ${briefSubIds.length} brief only), shipping ${shipCardIds.length} cards (${shipIds.length} ship only to dos), ${html.length} bytes`);
   if (!process.env.TODO_BUILD_OUT && !process.env.TODO_SYNC_NO_BACKUP) await syncBackup(sync);
 })().catch((e) => { console.error("BUILD FAILED: " + e.message); process.exit(1); });
 
