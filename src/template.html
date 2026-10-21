@@ -305,6 +305,12 @@ footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
 .br-hero h2{margin:0}
 .br-day{display:flex;align-items:center;gap:10px;margin:18px 4px 6px}
 .br-day h3{margin:0;font-size:1.02rem;color:var(--plum)}
+details.br-sec{margin-top:0}
+summary.br-day{width:auto;cursor:pointer;list-style:none;flex-wrap:wrap;font-size:inherit;color:inherit}
+summary.br-day::-webkit-details-marker{display:none}
+summary.br-day::after{content:"\25BE";margin-left:auto;color:var(--plum2);transition:transform .2s}
+details.br-sec:not([open])>summary.br-day::after{transform:rotate(-90deg)}
+.br-last{font-size:.78rem;color:var(--soft);font-weight:700}
 li.task.brief .when{display:block;font-size:.78rem;color:var(--soft);font-weight:700;margin-bottom:2px}
 li.task.brief .what{display:block}
 li.task.brief ul.bul{margin:6px 0 4px;padding-left:18px;font-size:.9rem}
@@ -314,6 +320,18 @@ li.task.brief .next b{color:var(--plum2)}
 li.task.brief .chips{margin-top:6px}
 li.task.brief .srcs{margin-top:6px}
 li.task.brief.done ul.bul,li.task.brief.done .next{opacity:.6}
+.bsubs{margin:8px 0 4px;padding:8px 10px;border-radius:14px;background:rgba(226,246,236,.35);border:1px dashed rgba(126,96,160,.2)}
+.bsubh{font-size:.8rem;font-weight:800;color:var(--plum2);margin-bottom:4px}
+.bsubh span{font-weight:700;color:var(--soft);margin-left:6px}
+.bsubs ul{list-style:none;margin:0;padding:0}
+li.bsub{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:.9rem}
+li.bsub .cb{width:20px;height:20px}
+li.bsub .cb span{border-radius:7px}
+li.bsub .cb span::after{left:5px;top:2px;width:5px;height:9px}
+li.bsub .st{flex:1;min-width:0}
+li.bsub .chip{flex:none;align-self:center}
+li.bsub.done .st{text-decoration:line-through;text-decoration-color:rgba(224,120,159,.6);color:#9a89ab}
+@media (max-width:520px){li.bsub{flex-wrap:wrap}li.bsub .st{flex:1 1 calc(100% - 30px)}li.bsub .chip{margin-left:29px}}
 @media (max-width:520px){nav.tabs{flex-wrap:wrap;border-radius:22px;justify-content:center}}
 /* Stage 4 deliverables (Marketing tab) */
 .s4{margin:10px 0 6px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,#f6f1ff,#fff7fb);border:1px solid var(--line);min-width:0}
@@ -875,41 +893,62 @@ function renderDave(V){
 }
 
 /* ---------- Daily Brief (incoming news, see DAILY_BRIEF.md) ---------- */
-var BKEY="isp-todo-brief-ticks";
+/* Entry boxes and brief only sub items tick in isp-todo-brief-ticks. Sub items linked to a Daily or Marketing to do
+   use that to do's own id and key, so ticking either place ticks both through the normal sync. */
+var BKEY="isp-todo-brief-ticks",BRIEF_DRAW=null;
 function renderBrief(B){
- B=B||{meta:{},entries:[]};var ticks=load(BKEY),E=(B.entries||[]).slice().sort(function(a,b){return new Date(b.at)-new Date(a.at)}),el=$("#tab-brief"),drawT=0;
- function when(iso){var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleTimeString("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"2-digit"})+" ET"}
- function dayLbl(iso){var d=new Date(iso);if(isNaN(d))return "";var k=etDate(d.getTime()),t=etDate(),y=etDate(Date.now()-864e5);var s=d.toLocaleDateString("en-US",{timeZone:"America/New_York",weekday:"long",month:"short",day:"numeric"});return k===t?"Today, "+s:k===y?"Yesterday, "+s:s}
+ B=B||{meta:{},entries:[]};var E=(B.entries||[]).slice().sort(function(a,b){return new Date(b.at)-new Date(a.at)}),el=$("#tab-brief"),drawT=0;
+ var bt,dt,mt;function reload(){bt=load(BKEY);dt=load(DKEY);mt=load(MKEY)}reload();
+ var SRCN={daily:"Daily To Do",marketing:"Marketing",brief:"Brief only"};
+ function subDone(s){if(s.src==="daily")return !!dt[s.id];if(s.src==="marketing")return mt.hasOwnProperty(s.id)?mt[s.id]===1:!!s.done;return !!bt[s.id]}
+ function subs(u){return u.subs||[]}
+ function entryDone(u){var S=subs(u);return !!bt[u.id]||(S.length>0&&S.every(subDone))}
+ function openSubs(u){if(entryDone(u))return 0;var S=subs(u);return S.length?S.filter(function(s){return !subDone(s)}).length:1}
+ function findSub(id){for(var i=0;i<E.length;i++){var S=subs(E[i]);for(var j=0;j<S.length;j++)if(S[j].id===id)return S[j]}return null}
+ function when(iso){var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
+ function subHtml(s){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+'" data-sub="'+esc(s.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+esc(s.text)+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
  function itemHtml(u){
-  var on=!!ticks[u.id];
+  var own=!!bt[u.id],on=entryDone(u),S=subs(u),sd=S.filter(subDone).length;
   var srcs=(u.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
-  return '<li class="task brief'+(on?' done':'')+'" data-id="'+esc(u.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="when">'+when(u.at)+(u.kind?' · '+esc(u.kind):'')+'</span><span class="what">'+esc(u.headline)+'</span>'+
+  return '<li class="task brief'+(on?' done':'')+'" data-id="'+esc(u.id)+'">'+cbx(own||on,on?"Mark not done":"Mark done")+'<div class="body"><span class="when">'+when(u.at)+(u.kind?' · '+esc(u.kind):'')+'</span><span class="what">'+esc(u.headline)+'</span>'+
    ((u.bullets||[]).length?'<ul class="bul">'+u.bullets.map(function(b){return '<li>'+esc(b)+'</li>'}).join("")+'</ul>':'')+
    (u.next_step?'<div class="next"><b>Next step:</b> '+esc(u.next_step)+'</div>':'')+
+   (S.length?'<div class="bsubs"><div class="bsubh">To check off <span>'+sd+' of '+S.length+' done</span></div><ul>'+S.map(subHtml).join("")+'</ul></div>':'')+
    '<div class="chips"><span class="chip proj">'+esc(u.project||"")+'</span>'+(on?'<span class="chip okc">Done</span>':'')+'</div>'+
    (srcs?'<div class="srcs">'+srcs+'</div>':'')+'</div></li>';
  }
  function draw(){
-  clearTimeout(drawT);
-  var open=E.filter(function(u){return !ticks[u.id]}).length,m=B.meta||{},h='',groups=[],idx={};
-  E.forEach(function(u){var k=etDate(new Date(u.at).getTime());if(!idx[k]){idx[k]={k:k,lbl:dayLbl(u.at),items:[]};groups.push(idx[k])}idx[k].items.push(u)});
-  h='<div class="card br-hero"><h2>Daily Brief</h2><p class="sub">Incoming news, newest first: supplier replies, quotes, Slack and email replies, and meeting prep. Check one off once I have handled the next step.</p>'+
-   '<div class="strip"><div><b>'+E.length+'</b><span>Updates</span></div><div><b>'+open+'</b><span>Open</span></div><div><b>'+(E.length-open)+'</b><span>Handled</span></div></div>'+
+  clearTimeout(drawT);reload();
+  var m=B.meta||{},h='',groups=[],idx={},closed=pref("briefClosed")||{},openE=E.filter(function(u){return !entryDone(u)}).length,openS=0;
+  /* one section per project; E is newest first, so sections come out in order of most recent activity */
+  E.forEach(function(u){var k=u.project||"Other";if(!idx[k]){idx[k]={k:k,items:[]};groups.push(idx[k])}idx[k].items.push(u);openS+=openSubs(u)});
+  h='<div class="card br-hero"><h2>Daily Brief</h2><p class="sub">Incoming news by project, most recent activity first: supplier replies, quotes, Slack and email replies, and meeting prep. The boxes under each one are the same to dos as on my Daily and Marketing tabs, so checking one here checks it there too.</p>'+
+   '<div class="strip"><div><b>'+E.length+'</b><span>Updates</span></div><div><b>'+openE+'</b><span>Open updates</span></div><div><b>'+openS+'</b><span>Open to check off</span></div></div>'+
    '<div class="srcline">'+(m.updated_at?'Updated '+fmtDate(m.updated_at)+'. ':'')+'Keeps the last '+esc(m.keep_days||30)+' days.</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button></div></div>';
   if(!E.length)h+='<div class="card"><p class="note">No updates yet. New supplier replies, quotes and meeting prep will land here.</p></div>';
-  groups.forEach(function(g){var o=g.items.filter(function(u){return !ticks[u.id]}).length;
-   h+='<div class="br-day">'+bloom("#cdb8f2")+'<h3>'+esc(g.lbl)+'</h3><span class="pill">'+o+' open</span></div><div class="card"><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul></div>'});
-  el.innerHTML=h;$("#nBrief").textContent=open||"";setHide(hideDone);
+  groups.forEach(function(g){var o=g.items.reduce(function(n,u){return n+openSubs(u)},0);
+   h+='<details class="br-sec" data-proj="'+esc(g.k)+'"'+(closed[g.k]?'':' open')+'><summary class="br-day">'+bloom("#cdb8f2")+'<h3>'+esc(g.k)+'</h3><span class="pill">'+o+' open</span><span class="br-last">Latest '+when(g.items[0].at)+'</span></summary><div class="card"><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul></div></details>'});
+  el.innerHTML=h;$("#nBrief").textContent=openS||"";setHide(hideDone);
  }
+ function others(){SYNC_HOOKS.forEach(function(f){if(f!==hook)try{f()}catch(e){}})}
  el.addEventListener("change",function(e){
-  var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id");
-  if(!e.target.checked){delete ticks[id];store(BKEY,ticks);draw();return}
-  ticks[id]=Date.now();store(BKEY,ticks);var c=centerOf(e.target);burst(c[0],c[1],"small");chime(false);
-  li.classList.add("shine","done");drawT=setTimeout(draw,reduced()?0:650);
+  var c,on=e.target.checked,sl=e.target.closest("li.bsub");
+  if(sl){var id=sl.getAttribute("data-sub"),s=findSub(id);if(!s)return;reload();
+   if(s.src==="daily"){if(on){dt[id]=Date.now();store(DKEY,dt);var w=load(WKEY);if(w[id]){delete w[id];store(WKEY,w)}}else{delete dt[id];store(DKEY,dt)}}
+   else if(s.src==="marketing"){mt[id]=on?1:0;store(MKEY,mt);if(on){var mw=load(MWKEY);if(mw[id]){delete mw[id];store(MWKEY,mw)}}}
+   else{if(on)bt[id]=Date.now();else delete bt[id];store(BKEY,bt)}
+   others();
+  }else{
+   var li=e.target.closest("li.task");if(!li)return;var eid=li.getAttribute("data-id");reload();
+   if(on)bt[eid]=Date.now();else delete bt[eid];store(BKEY,bt);
+  }
+  if(on){c=centerOf(e.target);burst(c[0],c[1],"small");chime(false);(sl||e.target.closest("li.task")).classList.add("shine")}
+  drawT=setTimeout(draw,on&&!reduced()?650:0);
  });
  el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone)});
- SYNC_HOOKS.push(function(){ticks=load(BKEY);draw()});
+ el.addEventListener("toggle",function(e){var d=e.target;if(!d.classList||!d.classList.contains("br-sec"))return;var c=pref("briefClosed")||{},k=d.getAttribute("data-proj");if(d.open)delete c[k];else c[k]=1;pref("briefClosed",c)},true);
+ var hook=function(){draw()};SYNC_HOOKS.push(hook);BRIEF_DRAW=draw;
  draw();
 }
 
@@ -964,7 +1003,7 @@ function render(data){
  renderDaily(data.daily);renderProjects(data.projects);renderMarketing(data.marketing);renderDave(data.dave);renderBrief(data.brief);renderStandup(data.standup);
  $("#foot").innerHTML="Built "+esc(fmtDate(data.built_at))+". <span id=\"syncState\"></span>";Sync.refresh();
  var tabs=$$("nav.tabs button");
- function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","brief","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();
+ function show(name){tabs.forEach(function(b){b.setAttribute("aria-selected",b.getAttribute("data-tab")===name?"true":"false")});["daily","projects","marketing","dave","brief","standup"].forEach(function(n){$("#tab-"+n).classList.toggle("hidden",n!==name)});pref("tab",name);if(name==="projects")renderProjects();if(name==="brief"&&BRIEF_DRAW)BRIEF_DRAW();
   var k=name==="daily"?"daily":name==="marketing"?"mkt":null;if(k&&vineMem[k]!=null){var v=vineMem[k];vineMem[k]=0;growVine($("#tab-"+name),k,v)}}
  tabs.forEach(function(b){b.addEventListener("click",function(){show(b.getAttribute("data-tab"));history.replaceState(null,"","#"+b.getAttribute("data-tab"))})});
  var h=location.hash.slice(1);var TABS=["daily","projects","marketing","dave","brief","standup"],pt=pref("tab");show(TABS.indexOf(h)>=0?h:(TABS.indexOf(pt)>=0?pt:"daily"));

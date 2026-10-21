@@ -67,6 +67,27 @@ const b64 = (u) => Buffer.from(u).toString("base64");
     (c.waiting || []).forEach((w) => { if (w.ref) { const r = resolve(w.ref); if (r) w.ref = { src: r.src, id: r.id }; else delete w.ref; } });
     delete c.todo_refs;
   });
+  // Daily Brief sub items: ref = an existing Daily or Marketing to do (same id, same tick); else a brief only item
+  // whose id is the entry id + "-aN". Resolved here so the page shows the live to do text.
+  const allTodo = new Set([...dIds, ...mIds]), briefSubIds = [];
+  for (const u of brief.entries) {
+    const seen = new Set();
+    u.subs = (u.subs || []).map((s) => {
+      if (s.ref) {
+        if (!["daily", "marketing"].includes(s.ref.src)) throw new Error("brief: sub ref src must be daily or marketing on " + u.id);
+        const r = resolve(s.ref); if (!r) return null;
+        if (seen.has(r.id)) throw new Error("brief: duplicate sub " + r.id + " on " + u.id); seen.add(r.id);
+        return { src: r.src, id: r.id, text: r.text, done: !!r.done };
+      }
+      if (!s.id || !s.id.startsWith(u.id + "-a") || !/-a[0-9]+$/.test(s.id)) throw new Error("brief: brief only sub ids must be <entry id>-aN on " + u.id);
+      if (allTodo.has(s.id)) throw new Error("brief: sub id collides with a to do id: " + s.id);
+      if (!s.text) throw new Error("brief: sub " + s.id + " needs text");
+      briefSubIds.push(s.id); return { src: "brief", id: s.id, text: s.text };
+    }).filter(Boolean);
+  }
+  const bAll = bIds.concat(briefSubIds);
+  if (new Set(bAll).size !== bAll.length) throw new Error("brief: duplicate entry or sub ids");
+  const bBad = bAll.filter((i) => !kebab.test(i)); if (bBad.length) throw new Error("brief: non kebab-case ids: " + bBad.join(", "));
   if (missing.length) console.warn("projects: " + missing.length + " refs not found and dropped: " + missing.join(", "));
 
   // stable salt so "remember on this device" keeps working across rebuilds (salt is not secret)
@@ -88,7 +109,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const html = tpl.replace("/*__PAYLOAD__*/", () => blob);
 
   // leak guard: no task text, ids, or the password may appear in the output
-  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || [])])]
+  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || []), ...u.subs.flatMap((x) => [x.id, x.text])])]
     .filter((s) => typeof s === "string" && s.length >= 12);
   const leaks = probes.filter((s) => html.includes(s));
   if (leaks.length) throw new Error("plaintext leak guard tripped (" + leaks.length + " strings). Not writing index.html.");
@@ -97,7 +118,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   if (!tpl.includes("Sync.start(data.sync)")) throw new Error("template is missing the checkmark sync code (see SYNC.md)");
   fs.writeFileSync(OUT, html);
   const mDone = marketing.projects.flatMap((p) => p.tasks).filter((t) => t.d).length;
-  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, brief ${bIds.length} updates, ${html.length} bytes`);
+  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, brief ${bIds.length} updates (${brief.entries.reduce((n, u) => n + u.subs.filter((x) => x.src !== "brief").length, 0)} linked sub items, ${briefSubIds.length} brief only), ${html.length} bytes`);
   if (!process.env.TODO_BUILD_OUT && !process.env.TODO_SYNC_NO_BACKUP) await syncBackup(sync);
 })().catch((e) => { console.error("BUILD FAILED: " + e.message); process.exit(1); });
 
