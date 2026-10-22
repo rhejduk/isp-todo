@@ -335,6 +335,12 @@ li.bsub.done .st{text-decoration:line-through;text-decoration-color:rgba(224,120
 @media (max-width:520px){li.bsub{flex-wrap:wrap}li.bsub .st{flex:1 1 calc(100% - 30px)}li.bsub .chip{margin-left:29px}}
 /* Daily Brief: day groups and meeting cards */
 details.br-mtg{padding:0}
+#newBuild{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;background:#3b2a4d;color:#fff;padding:10px 14px;border-radius:14px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:calc(100% - 24px)}
+#newBuild button{margin-left:8px;background:#f7a8c4;color:#3b2a4d;border:0;border-radius:10px;padding:5px 10px;font-weight:700;cursor:pointer}
+li.task.urgent{border-left:4px solid #d1001f;background:rgba(209,0,31,.06);border-radius:10px;padding-left:8px}
+li.task.urgent .what,li.bsub.urgent .st{color:#c4001d;font-weight:700}
+.chip.urgent{background:#d1001f;color:#fff;border-color:#d1001f}
+li.bsub.urgent{border-left:3px solid #d1001f;padding-left:6px}
 details.br-mtg>summary.br-mh{list-style:none;cursor:pointer;padding:16px 18px;display:block;width:auto;font-size:inherit;font-weight:inherit;color:inherit}
 details.br-mtg>summary.br-mh::-webkit-details-marker{display:none}
 details.br-mtg>summary.br-mh .pjhead{position:relative;padding-right:22px}
@@ -689,6 +695,17 @@ function growVine(root,key,pct){
 /* ---------- unlock ---------- */
 var P0=JSON.parse(document.getElementById("payload").textContent);
 var KEYSTORE="isp-todo-key";
+/* New build check: index.html carries data and code together, so an open tab or a cached copy keeps showing the
+   old build. Every 2 minutes and whenever the tab comes back, fetch the page with no-store and compare the build
+   iv. If it changed, reload when coming back to the tab (the remembered key unlocks it again), else show a bar. */
+(function(){var busy=0,shown=0;
+ function bar(){if(shown)return;shown=1;var d=document.createElement("div");d.id="newBuild";d.setAttribute("role","status");d.innerHTML='A newer version of this page is ready. <button type="button">Reload</button>';d.querySelector("button").addEventListener("click",function(){location.reload()});document.body.appendChild(d)}
+ function check(back){if(busy||!window.fetch)return;busy=1;fetch(location.pathname+"?v="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():""}).then(function(t){busy=0;var m=/"iv":"([^"]+)"/.exec(t||"");if(!m||m[1]===P0.iv)return;var k=null;try{k=localStorage.getItem(KEYSTORE)}catch(e){}if(back&&k&&!document.querySelector("input:focus,textarea:focus"))location.reload();else bar()}).catch(function(){busy=0})}
+ setInterval(function(){if(!document.hidden)check(false)},120000);
+ document.addEventListener("visibilitychange",function(){if(!document.hidden)check(true)});
+ window.addEventListener("pageshow",function(e){if(e.persisted)check(true)});
+ setTimeout(function(){check(false)},4000);
+})();
 function b64d(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
 function b64e(buf){var u=new Uint8Array(buf),s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s)}
 function derive(pw){return crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]).then(function(k){return crypto.subtle.deriveKey({name:"PBKDF2",salt:b64d(P0.salt),iterations:P0.iter,hash:"SHA-256"},k,{name:"AES-GCM",length:256},true,["decrypt"])})}
@@ -740,9 +757,9 @@ function renderDaily(D){
  var NAMES={};SEC.forEach(function(s){NAMES[s[0]]=s[1]});
  function taskHtml(t,inGroup){
   var on=!!ticks[t.task_id],w=isWip(t);
-  var chips='<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
+  var chips=(t.urgent?'<span class="chip urgent">Urgent</span>':'')+'<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
   var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
-  return '<li class="task'+(on?' done':'')+(w?' wip':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+
    '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
  }
  function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
@@ -761,7 +778,7 @@ function renderDaily(D){
    '<div class="card wipbox" id="wipGroup"><details'+(pref("wipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
    (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on any task and it will wait for you up here while you work on it.</p>')+'</details></div>';
   SEC.forEach(function(s){
-   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
+   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(function(a,b){return (b.urgent?1:0)-(a.urgent?1:0)}),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
    h+='<div class="sechead">'+bloom(s[3])+'<h2>'+s[1]+'</h2><span class="pill">'+ts.length+' open</span>'+(wn?'<span class="pill wipp">'+wn+' in progress</span>':'')+'</div><p class="note">'+s[2]+'</p>';
    if(s[0]==="by_project"){h+=pn.length?'<div class="pgrid">'+pn.map(function(n){return '<div class="card pcard"><h3>'+esc(n)+' <span class="pill">'+projs[n].length+'</span></h3><ul class="tasks">'+projs[n].map(taskHtml).join("")+'</ul></div>'}).join("")+'</div>':'<div class="card"><p class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</p></div>'}
    else h+='<div class="card"><ul class="tasks">'+(ts.length?ts.map(taskHtml).join(""):'<li class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</li>')+'</ul></div>';
@@ -968,7 +985,7 @@ function renderBrief(B){
  function openSubs(u){if(entryDone(u))return 0;var S=subs(u);return S.length?S.filter(function(s){return !subDone(s)}).length:1}
  function when(iso){var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
  function link(u,t){var x=safeUrl(u);return x?' <a class="go" href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(t||"open")+'</a>':''}
- function subHtml(s,extra){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+'" data-sub="'+esc(s.id)+'" data-src="'+esc(s.src)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+esc(s.text)+(extra||'')+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
+ function subHtml(s,extra){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+(s.urgent?' urgent':'')+'" data-sub="'+esc(s.id)+'" data-src="'+esc(s.src)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+(s.urgent?'<span class="chip urgent">Urgent</span> ':'')+esc(s.text)+(extra||'')+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
  function itemHtml(u){
   var own=!!bt[u.id],on=entryDone(u),S=subs(u),sd=S.filter(subDone).length;
   var srcs=(u.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
@@ -983,7 +1000,7 @@ function renderBrief(B){
  function mtgItems(m){return {mine:m.todos||[],owed:(m.owes||[]).reduce(function(a,o){return a.concat(o.items)},[])}}
  function bar(done,total,label){var p=total?Math.round(done/total*100):0;return '<div class="br-bar" role="img" aria-label="'+esc(label+": "+done+" of "+total+" done")+'"><i style="width:'+p+'%"></i></div>'}
  function listHtml(items,cap,mk){
-  var open=items.filter(function(s){return !subDone(s)}),done=items.filter(subDone),all=open.concat(done);
+  var open=items.filter(function(s){return !subDone(s)}).sort(function(a,b){return (b.urgent?1:0)-(a.urgent?1:0)}),done=items.filter(subDone),all=open.concat(done);
   var head=all.slice(0,cap),rest=all.slice(cap);
   return '<ul class="br-list">'+head.map(mk).join("")+'</ul>'+(rest.length?'<details class="br-more"><summary>'+rest.length+' more</summary><ul class="br-list">'+rest.map(mk).join("")+'</ul></details>':'');
  }
@@ -991,7 +1008,7 @@ function renderBrief(B){
  function owedHtml(s){return subHtml(s,(s.since?' <span class="br-since">'+esc(s.since)+'</span>':'')+(s.link?link(s.link,"source"):''))}
  function mtgHtml(m,ds,openPref){
   var I=mtgItems(m),md=I.mine.filter(subDone).length,od=I.owed.filter(subDone).length,key="m:"+ds+":"+m.id;
-  var ended=ds===TODAY&&m.end&&new Date(m.end)<new Date(),isOpen=openPref.hasOwnProperty(key)?!!openPref[key]:!ended;
+  var ended=ds===TODAY&&m.end&&new Date(m.end)<new Date(),isOpen=openPref.hasOwnProperty(key)?!!openPref[key]:true;
   var srcs=(m.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
   var h='<details class="card pjcard br-mtg'+(ended?' ended':'')+'" data-key="'+esc(key)+'"'+(isOpen?' open':'')+'><summary class="br-mh"><div class="pjhead"><div class="pjtime">'+esc(etTime(m.start))+'<span>to '+esc(etTime(m.end,true))+' ET</span></div><div class="br-mt">'+
    '<h3>'+esc(m.project)+(m.title&&m.title!==m.project?' <small>'+esc(m.title)+'</small>':'')+'</h3>'+
