@@ -303,6 +303,7 @@ footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
 @media (prefers-reduced-motion:reduce){.ambient,.cloud{display:none}.flower,.flower .head,.sun,.shimmer-text,.panel{animation:none!important}li.task.leaving{transition-duration:.01s!important;transition-delay:0s!important}}
 /* Daily Brief tab */
 .br-hero h2{margin:0}
+.br-date{font-weight:600;margin-top:4px;color:var(--soft)}
 .br-day{display:flex;align-items:center;gap:10px;margin:18px 4px 6px}
 .br-day h3{margin:0;font-size:1.02rem;color:var(--plum)}
 details.br-sec{margin-top:0}
@@ -927,7 +928,9 @@ function renderDave(V){
    use that to do's own id and key, so ticking either place ticks both through the normal sync. */
 var BKEY="isp-todo-brief-ticks",BRIEF_DRAW=null;
 function renderBrief(B){
- B=B||{meta:{},entries:[]};var E=(B.entries||[]).slice().sort(function(a,b){return new Date(b.at)-new Date(a.at)}),el=$("#tab-brief"),drawT=0;
+ B=B||{meta:{},entries:[]};var TODAY=etDate();/* today only (ET); earlier days live in data/daily_brief_archive.json */
+ var E=(B.entries||[]).filter(function(u){return etDate(u.updated_at&&u.updated_at>u.at?u.updated_at:u.at)===TODAY}).sort(function(a,b){return new Date(b.at)-new Date(a.at)}),el=$("#tab-brief"),drawT=0;
+ var DAYL=new Date(TODAY+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
  var bt,dt,mt;function reload(){bt=load(BKEY);dt=load(DKEY);mt=load(MKEY)}reload();
  var SRCN={daily:"Daily To Do",marketing:"Marketing",brief:"Brief only"};
  function subDone(s){if(s.src==="daily")return !!dt[s.id];if(s.src==="marketing")return mt.hasOwnProperty(s.id)?mt[s.id]===1:!!s.done;return !!bt[s.id]}
@@ -952,11 +955,11 @@ function renderBrief(B){
   var m=B.meta||{},h='',groups=[],idx={},closed=pref("briefClosed")||{},openE=E.filter(function(u){return !entryDone(u)}).length,openS=0;
   /* one section per project; E is newest first, so sections come out in order of most recent activity */
   E.forEach(function(u){var k=u.project||"Other";if(!idx[k]){idx[k]={k:k,items:[]};groups.push(idx[k])}idx[k].items.push(u);openS+=openSubs(u)});
-  h='<div class="card br-hero"><h2>Daily Brief</h2><p class="sub">Incoming news by project, most recent activity first: supplier replies, quotes, Slack and email replies, and meeting prep. The boxes under each one are the same to dos as on my Daily and Marketing tabs, so checking one here checks it there too.</p>'+
+  h='<div class="card br-hero"><h2>Daily Brief</h2><div class="br-date">Today, '+esc(DAYL)+'</div><p class="sub">Incoming news by project, most recent activity first: supplier replies, quotes, Slack and email replies, and meeting prep. The boxes under each one are the same to dos as on my Daily and Marketing tabs, so checking one here checks it there too.</p>'+
    '<div class="strip"><div><b>'+E.length+'</b><span>Updates</span></div><div><b>'+openE+'</b><span>Open updates</span></div><div><b>'+openS+'</b><span>Open to check off</span></div></div>'+
-   '<div class="srcline">'+(m.updated_at?'Updated '+fmtDate(m.updated_at)+'. ':'')+'Keeps the last '+esc(m.keep_days||30)+' days.</div>'+
+   '<div class="srcline">'+(m.updated_at?'Updated '+fmtDate(m.updated_at)+'. ':'')+'Shows today only. Earlier days are archived so we can revisit them.</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button></div></div>';
-  if(!E.length)h+='<div class="card"><p class="note">No updates yet. New supplier replies, quotes and meeting prep will land here.</p></div>';
+  if(!E.length)h+='<div class="card"><p class="note">Nothing new yet today. New supplier replies, quotes and meeting prep will land here.</p></div>';
   groups.forEach(function(g){var o=g.items.reduce(function(n,u){return n+openSubs(u)},0);
    h+='<details class="br-sec" data-proj="'+esc(g.k)+'"'+(closed[g.k]?'':' open')+'><summary class="br-day">'+bloom("#cdb8f2")+'<h3>'+esc(g.k)+'</h3><span class="pill">'+o+' open</span><span class="br-last">Latest '+when(g.items[0].at)+'</span></summary><div class="card"><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul></div></details>'});
   el.innerHTML=h;$("#nBrief").textContent=openS||"";setHide(hideDone);
