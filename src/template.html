@@ -333,6 +333,32 @@ li.bsub .st{flex:1;min-width:0}
 li.bsub .chip{flex:none;align-self:center}
 li.bsub.done .st{text-decoration:line-through;text-decoration-color:rgba(224,120,159,.6);color:#9a89ab}
 @media (max-width:520px){li.bsub{flex-wrap:wrap}li.bsub .st{flex:1 1 calc(100% - 30px)}li.bsub .chip{margin-left:29px}}
+/* Daily Brief: day groups and meeting cards */
+details.br-mtg{padding:0}
+details.br-mtg>summary.br-mh{list-style:none;cursor:pointer;padding:16px 18px;display:block;width:auto;font-size:inherit;font-weight:inherit;color:inherit}
+details.br-mtg>summary.br-mh::-webkit-details-marker{display:none}
+details.br-mtg>summary.br-mh .pjhead{position:relative;padding-right:22px}
+details.br-mtg>summary.br-mh .pjhead::after{content:"\25BE";position:absolute;right:0;top:4px;color:var(--plum2);transition:transform .2s}
+details.br-mtg:not([open])>summary.br-mh .pjhead::after{transform:rotate(-90deg)}
+details.br-mtg.ended:not([open]){opacity:.78}
+.br-mt{flex:1;min-width:0}
+.br-mt h3 small{font:600 .82rem var(--f-body);color:var(--soft);margin-left:6px}
+.br-sum{margin:5px 0 0;font-size:.92rem;line-height:1.4;color:#4a3a5a}
+.br-body{padding:0 18px 16px}
+.br-bar{height:6px;border-radius:999px;background:rgba(126,96,160,.12);overflow:hidden;margin-top:8px;max-width:260px}
+.br-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#f7c8d8,#cdb8f2 60%,#bfe8d4);transition:width .6s}
+summary.br-day .br-bar{flex:1 1 120px;margin-top:0;max-width:180px}
+ul.br-list{list-style:none;margin:2px 0 0;padding:0}
+.br-who{margin:8px 0 4px;padding:6px 10px;border-radius:14px;background:rgba(255,241,207,.35);border:1px dashed rgba(134,96,10,.18)}
+.br-whoh{display:flex;align-items:baseline;gap:8px;font-size:.9rem}
+.br-whoh b{color:var(--plum)}
+.br-whoh span{font-size:.76rem;font-weight:700;color:var(--soft)}
+.br-since{font-size:.76rem;color:var(--soft);font-weight:700;margin-left:4px}
+details.br-more>summary{cursor:pointer;font-size:.8rem;font-weight:800;color:var(--plum2);padding:3px 0}
+.br-dnotes{margin:4px 8px 10px}
+.br-oh{margin:12px 0 2px;font:700 .95rem var(--f-head);color:var(--plum)}
+.br-oh:first-child{margin-top:0}
+body.hide-done li.bsub.done{display:none}
 /* Shipping tab (see SHIPPING_TAB.md) */
 .sh-card h3{margin:0;font:700 1.14rem/1.3 var(--f-head);color:var(--plum)}
 .sh-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
@@ -923,53 +949,105 @@ function renderDave(V){
  draw();
 }
 
-/* ---------- Daily Brief (incoming news, see DAILY_BRIEF.md) ---------- */
-/* Entry boxes and brief only sub items tick in isp-todo-brief-ticks. Sub items linked to a Daily or Marketing to do
-   use that to do's own id and key, so ticking either place ticks both through the normal sync. */
+/* ---------- Daily Brief (meetings by project + other updates, see DAILY_BRIEF.md) ---------- */
+/* Day groups come from tools/build_brief.py: morning build = today + next weekday, evening build = next two weekdays.
+   My to dos and owed items linked to a Daily, Marketing or Talk with Dave to do use that to do's own id and key, so
+   ticking either place ticks both through the normal sync. Brief only items (bm-, bw-, upd- and their -aN subs) tick
+   in isp-todo-brief-ticks. Other updates (entries) still show today only. */
 var BKEY="isp-todo-brief-ticks",BRIEF_DRAW=null;
 function renderBrief(B){
- B=B||{meta:{},entries:[]};var TODAY=etDate();/* today only (ET); earlier days live in data/daily_brief_archive.json */
+ B=B||{meta:{},entries:[],days:[]};var TODAY=etDate();
  var E=(B.entries||[]).filter(function(u){return etDate(u.updated_at&&u.updated_at>u.at?u.updated_at:u.at)===TODAY}).sort(function(a,b){return new Date(b.at)-new Date(a.at)}),el=$("#tab-brief"),drawT=0;
- var DAYL=new Date(TODAY+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
- var bt,dt,mt;function reload(){bt=load(BKEY);dt=load(DKEY);mt=load(MKEY)}reload();
- var SRCN={daily:"Daily To Do",marketing:"Marketing",brief:"Brief only"};
- function subDone(s){if(s.src==="daily")return !!dt[s.id];if(s.src==="marketing")return mt.hasOwnProperty(s.id)?mt[s.id]===1:!!s.done;return !!bt[s.id]}
+ var DAYS=(B.days||[]).filter(function(d){return d.date>=TODAY});
+ function dayLabel(ds){return new Date(ds+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+ var bt,dt,mt,vt;function reload(){bt=load(BKEY);dt=load(DKEY);mt=load(MKEY);vt=load(VKEY)}reload();
+ var SRCN={daily:"Daily",marketing:"Marketing",dave:"Talk with Dave",brief:"Brief only"};
+ function subDone(s){if(s.src==="daily")return !!dt[s.id];if(s.src==="marketing")return mt.hasOwnProperty(s.id)?mt[s.id]===1:!!s.done;if(s.src==="dave")return !!vt[s.id];return !!bt[s.id]}
  function subs(u){return u.subs||[]}
  function entryDone(u){var S=subs(u);return !!bt[u.id]||(S.length>0&&S.every(subDone))}
  function openSubs(u){if(entryDone(u))return 0;var S=subs(u);return S.length?S.filter(function(s){return !subDone(s)}).length:1}
- function findSub(id){for(var i=0;i<E.length;i++){var S=subs(E[i]);for(var j=0;j<S.length;j++)if(S[j].id===id)return S[j]}return null}
  function when(iso){var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
- function subHtml(s){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+'" data-sub="'+esc(s.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+esc(s.text)+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
+ function link(u,t){var x=safeUrl(u);return x?' <a class="go" href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(t||"open")+'</a>':''}
+ function subHtml(s,extra){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+'" data-sub="'+esc(s.id)+'" data-src="'+esc(s.src)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+esc(s.text)+(extra||'')+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
  function itemHtml(u){
   var own=!!bt[u.id],on=entryDone(u),S=subs(u),sd=S.filter(subDone).length;
   var srcs=(u.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
   return '<li class="task brief'+(on?' done':'')+'" data-id="'+esc(u.id)+'">'+cbx(own||on,on?"Mark not done":"Mark done")+'<div class="body"><span class="when">'+when(u.at)+(u.kind?' · '+esc(u.kind):'')+'</span><span class="what">'+esc(u.headline)+'</span>'+
    ((u.bullets||[]).length?'<ul class="bul">'+u.bullets.map(function(b){return '<li>'+esc(b)+'</li>'}).join("")+'</ul>':'')+
    (u.next_step?'<div class="next"><b>Next step:</b> '+esc(u.next_step)+'</div>':'')+
-   (S.length?'<div class="bsubs"><div class="bsubh">To check off <span>'+sd+' of '+S.length+' done</span></div><ul>'+S.map(subHtml).join("")+'</ul></div>':'')+
+   (S.length?'<div class="bsubs"><div class="bsubh">To check off <span>'+sd+' of '+S.length+' done</span></div><ul>'+S.map(function(s){return subHtml(s)}).join("")+'</ul></div>':'')+
    '<div class="chips"><span class="chip proj">'+esc(u.project||"")+'</span>'+(on?'<span class="chip okc">Done</span>':'')+'</div>'+
    (srcs?'<div class="srcs">'+srcs+'</div>':'')+'</div></li>';
  }
+ function uniq(list){var s={},o=[];list.forEach(function(x){var k=x.src+":"+x.id;if(!s[k]){s[k]=1;o.push(x)}});return o}
+ function mtgItems(m){return {mine:m.todos||[],owed:(m.owes||[]).reduce(function(a,o){return a.concat(o.items)},[])}}
+ function bar(done,total,label){var p=total?Math.round(done/total*100):0;return '<div class="br-bar" role="img" aria-label="'+esc(label+": "+done+" of "+total+" done")+'"><i style="width:'+p+'%"></i></div>'}
+ function listHtml(items,cap,mk){
+  var open=items.filter(function(s){return !subDone(s)}),done=items.filter(subDone),all=open.concat(done);
+  var head=all.slice(0,cap),rest=all.slice(cap);
+  return '<ul class="br-list">'+head.map(mk).join("")+'</ul>'+(rest.length?'<details class="br-more"><summary>'+rest.length+' more</summary><ul class="br-list">'+rest.map(mk).join("")+'</ul></details>':'');
+ }
+ function mineHtml(s){return subHtml(s,(s.shared?' <span class="chip">Shared with PMs</span>':'')+(s.link?link(s.link,"source"):''))}
+ function owedHtml(s){return subHtml(s,(s.since?' <span class="br-since">'+esc(s.since)+'</span>':'')+(s.link?link(s.link,"source"):''))}
+ function mtgHtml(m,ds,openPref){
+  var I=mtgItems(m),md=I.mine.filter(subDone).length,od=I.owed.filter(subDone).length,key="m:"+ds+":"+m.id;
+  var ended=ds===TODAY&&m.end&&new Date(m.end)<new Date(),isOpen=openPref.hasOwnProperty(key)?!!openPref[key]:!ended;
+  var srcs=(m.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
+  var h='<details class="card pjcard br-mtg'+(ended?' ended':'')+'" data-key="'+esc(key)+'"'+(isOpen?' open':'')+'><summary class="br-mh"><div class="pjhead"><div class="pjtime">'+esc(etTime(m.start))+'<span>to '+esc(etTime(m.end,true))+' ET</span></div><div class="br-mt">'+
+   '<h3>'+esc(m.project)+(m.title&&m.title!==m.project?' <small>'+esc(m.title)+'</small>':'')+'</h3>'+
+   (m.summary?'<p class="br-sum">'+esc(m.summary)+'</p>':'')+
+   '<div class="chips"><span class="chip">'+md+' of '+I.mine.length+' my to dos done</span><span class="chip">'+(I.owed.length-od)+' owed to me open</span>'+(ended?'<span class="chip okc">Ended</span>':'')+(m.flags||[]).map(function(f){return '<span class="chip flag">'+esc(f)+'</span>'}).join("")+'</div>'+
+   bar(md,I.mine.length,"My to dos")+'</div></div></summary><div class="br-body">';
+  if(m.note)h+='<div class="pjnote">'+esc(m.note)+'</div>';
+  if((m.agenda||[]).length)h+='<div class="pjsec ag"><h4>Agenda</h4><ol>'+m.agenda.map(function(a){return '<li>'+esc(a.text)+(a.pinned?' <span class="chip flag">Pinned</span>':'')+'</li>'}).join("")+'</ol></div>';
+  h+='<div class="pjsec td"><h4>My to dos<span>'+md+' of '+I.mine.length+' done</span></h4>'+(I.mine.length?listHtml(I.mine,6,mineHtml):'<p class="note">Nothing on my lists for this one.</p>')+'</div>';
+  h+='<div class="pjsec wt"><h4>Who owes what<span>'+(I.owed.length-od)+' open</span></h4>';
+  if(!(m.owes||[]).length)h+='<p class="note">Nobody owes me anything for this one.</p>';
+  (m.owes||[]).forEach(function(o){var oo=o.items.filter(function(s){return !subDone(s)}).length;
+   h+='<div class="br-who"><div class="br-whoh"><b>'+esc(o.who)+'</b><span>'+oo+' of '+o.items.length+' open</span></div>'+listHtml(o.items,4,owedHtml)+'</div>'});
+  h+='</div>';
+  if((m.attendees||[]).length)h+='<div class="pjwho">With '+esc(m.attendees.join(", "))+'</div>';
+  h+='<div class="pjsrc">'+(m.calendar_url?'<a href="'+esc(safeUrl(m.calendar_url)||"#")+'" target="_blank" rel="noopener">Open in Calendar</a>':'')+srcs+'</div></div></details>';
+  return h;
+ }
  function draw(){
   clearTimeout(drawT);reload();
-  var m=B.meta||{},h='',groups=[],idx={},closed=pref("briefClosed")||{},openE=E.filter(function(u){return !entryDone(u)}).length,openS=0;
-  /* one section per project; E is newest first, so sections come out in order of most recent activity */
+  var m=B.meta||{},h='',groups=[],idx={},closed=pref("briefClosed")||{},openPref=pref("briefMtgOpen")||{},openS=0;
   E.forEach(function(u){var k=u.project||"Other";if(!idx[k]){idx[k]={k:k,items:[]};groups.push(idx[k])}idx[k].items.push(u);openS+=openSubs(u)});
-  h='<div class="card br-hero"><h2>Daily Brief</h2><div class="br-date">Today, '+esc(DAYL)+'</div><p class="sub">Incoming news by project, most recent activity first: supplier replies, quotes, Slack and email replies, and meeting prep. The boxes under each one are the same to dos as on my Daily and Marketing tabs, so checking one here checks it there too.</p>'+
-   '<div class="strip"><div><b>'+E.length+'</b><span>Updates</span></div><div><b>'+openE+'</b><span>Open updates</span></div><div><b>'+openS+'</b><span>Open to check off</span></div></div>'+
-   '<div class="srcline">'+(m.updated_at?'Updated '+fmtDate(m.updated_at)+'. ':'')+'Shows today only. Earlier days are archived so we can revisit them.</div>'+
+  var today=DAYS.filter(function(d){return d.date===TODAY})[0],tMine=[],tOwed=[],nMt=0;
+  DAYS.forEach(function(d){nMt+=d.meetings.length});
+  if(today)today.meetings.forEach(function(x){var I=mtgItems(x);tMine=tMine.concat(I.mine);tOwed=tOwed.concat(I.owed)});
+  tMine=uniq(tMine);tOwed=uniq(tOwed);
+  var tMineOpen=tMine.filter(function(s){return !subDone(s)}).length,tOwedOpen=tOwed.filter(function(s){return !subDone(s)}).length;
+  var lbl=DAYS.map(function(d){return (d.date===TODAY?"Today, ":"")+dayLabel(d.date)}).join(" and ");
+  h='<div class="card br-hero"><h2>Daily Brief</h2><div class="br-date">'+esc(lbl||("Today, "+dayLabel(TODAY)))+'</div><p class="sub">My meetings by project, in time order: a quick summary, my to dos, and who owes me what. The boxes are the same to dos as on my Daily, Marketing and Talk with Dave tabs, so checking one here checks it there too.</p>'+
+   '<div class="strip"><div><b>'+nMt+'</b><span>Meetings</span></div><div><b>'+(today?tMineOpen:"-")+'</b><span>My open to dos today</span></div><div><b>'+(today?tOwedOpen:"-")+'</b><span>Owed to me today</span></div><div><b>'+E.length+'</b><span>Other updates</span></div></div>'+
+   '<div class="srcline">'+(m.days_built_at?'Built '+fmtDate(m.days_built_at)+' ('+esc(m.mode||"")+'). ':'')+'Mornings show today and the next weekday. Evenings clear today and show the next two weekdays.</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button></div></div>';
-  if(!E.length)h+='<div class="card"><p class="note">Nothing new yet today. New supplier replies, quotes and meeting prep will land here.</p></div>';
-  groups.forEach(function(g){var o=g.items.reduce(function(n,u){return n+openSubs(u)},0);
-   h+='<details class="br-sec" data-proj="'+esc(g.k)+'"'+(closed[g.k]?'':' open')+'><summary class="br-day">'+bloom("#cdb8f2")+'<h3>'+esc(g.k)+'</h3><span class="pill">'+o+' open</span><span class="br-last">Latest '+when(g.items[0].at)+'</span></summary><div class="card"><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul></div></details>'});
-  el.innerHTML=h;$("#nBrief").textContent=openS||"";setHide(hideDone);
+  if(!DAYS.length)h+='<div class="card"><p class="note">No meetings built for today yet. The 7 AM run fills this in.</p></div>';
+  DAYS.forEach(function(d){
+   var mine=[],owed=[];d.meetings.forEach(function(x){var I=mtgItems(x);mine=mine.concat(I.mine);owed=owed.concat(I.owed)});mine=uniq(mine);owed=uniq(owed);
+   var md=mine.filter(subDone).length,ow=owed.filter(function(s){return !subDone(s)}).length,k="day:"+d.date;
+   h+='<details class="br-sec br-dayg" data-proj="'+esc(k)+'"'+(closed[k]?'':' open')+'><summary class="br-day">'+bloom(d.date===TODAY?"#f7a8c4":"#cdb8f2")+'<h3>'+(d.date===TODAY?'Today · ':'')+esc(dayLabel(d.date))+'</h3><span class="pill">'+d.meetings.length+' meeting'+(d.meetings.length===1?'':'s')+'</span><span class="pill">'+md+' of '+mine.length+' my to dos done</span><span class="pill">'+ow+' owed to me</span>'+bar(md,mine.length,"My to dos")+'</summary>';
+   if(!d.meetings.length)h+='<div class="card"><p class="note">No project meetings on my calendar.</p></div>';
+   d.meetings.forEach(function(x){h+=mtgHtml(x,d.date,openPref)});
+   var extra=(d.notes||[]).map(function(n){return '<li>'+esc(n)+'</li>'}).join("")+((d.skipped||[]).length?'<li>Skipped: '+esc(d.skipped.map(function(s){return s.title+(s.why?" ("+s.why+")":"")}).join(", "))+'</li>':'');
+   if(extra)h+='<ul class="pj-notes br-dnotes">'+extra+'</ul>';
+   h+='</details>';
+  });
+  h+='<details class="br-sec br-other" data-proj="other-updates"'+(closed["other-updates"]?'':' open')+'><summary class="br-day">'+bloom("#bfe8d4")+'<h3>Other updates</h3><span class="pill">'+E.length+' today</span><span class="pill">'+openS+' to check off</span></summary><div class="card">';
+  if(!E.length)h+='<p class="note">Nothing outside my meetings yet today. Supplier replies, quotes and other news land here.</p>';
+  groups.forEach(function(g){h+='<h4 class="br-oh">'+esc(g.k)+'</h4><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul>'});
+  h+='</div></details>';
+  el.innerHTML=h;$("#nBrief").textContent=(tMineOpen+openS)||"";setHide(hideDone);
  }
  function others(){SYNC_HOOKS.forEach(function(f){if(f!==hook)try{f()}catch(e){}})}
  el.addEventListener("change",function(e){
   var c,on=e.target.checked,sl=e.target.closest("li.bsub");
-  if(sl){var id=sl.getAttribute("data-sub"),s=findSub(id);if(!s)return;reload();
-   if(s.src==="daily"){if(on){dt[id]=Date.now();store(DKEY,dt);var w=load(WKEY);if(w[id]){delete w[id];store(WKEY,w)}}else{delete dt[id];store(DKEY,dt)}}
-   else if(s.src==="marketing"){mt[id]=on?1:0;store(MKEY,mt);if(on){var mw=load(MWKEY);if(mw[id]){delete mw[id];store(MWKEY,mw)}}}
+  if(sl){var id=sl.getAttribute("data-sub"),src=sl.getAttribute("data-src");reload();
+   if(src==="daily"){if(on){dt[id]=Date.now();store(DKEY,dt);var w=load(WKEY);if(w[id]){delete w[id];store(WKEY,w)}}else{delete dt[id];store(DKEY,dt)}}
+   else if(src==="marketing"){mt[id]=on?1:0;store(MKEY,mt);if(on){var mw=load(MWKEY);if(mw[id]){delete mw[id];store(MWKEY,mw)}}}
+   else if(src==="dave"){if(on){vt[id]=Date.now();store(VKEY,vt);var vw=load(VWKEY);if(vw[id]){delete vw[id];store(VWKEY,vw)}}else{delete vt[id];store(VKEY,vt)}}
    else{if(on)bt[id]=Date.now();else delete bt[id];store(BKEY,bt)}
    others();
   }else{
@@ -980,7 +1058,9 @@ function renderBrief(B){
   drawT=setTimeout(draw,on&&!reduced()?650:0);
  });
  el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone)});
- el.addEventListener("toggle",function(e){var d=e.target;if(!d.classList||!d.classList.contains("br-sec"))return;var c=pref("briefClosed")||{},k=d.getAttribute("data-proj");if(d.open)delete c[k];else c[k]=1;pref("briefClosed",c)},true);
+ el.addEventListener("toggle",function(e){var d=e.target;if(!d.classList)return;
+  if(d.classList.contains("br-sec")){var c=pref("briefClosed")||{},k=d.getAttribute("data-proj");if(d.open)delete c[k];else c[k]=1;pref("briefClosed",c)}
+  else if(d.classList.contains("br-mtg")){var o=pref("briefMtgOpen")||{};o[d.getAttribute("data-key")]=d.open?1:0;pref("briefMtgOpen",o)}},true);
  var hook=function(){draw()};SYNC_HOOKS.push(hook);BRIEF_DRAW=draw;
  draw();
 }

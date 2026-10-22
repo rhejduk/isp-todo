@@ -90,6 +90,27 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const bAll = bIds.concat(briefSubIds);
   if (new Set(bAll).size !== bAll.length) throw new Error("brief: duplicate entry or sub ids");
   const bBad = bAll.filter((i) => !kebab.test(i)); if (bBad.length) throw new Error("brief: non kebab-case ids: " + bBad.join(", "));
+  // Daily Brief day groups (tools/build_brief.py): meetings by project for two weekdays. Refs resolve to live to do
+  // text and tick in their own tab's key; brief only items are bm- (mine) or bw- (who owes what) and tick in BKEY.
+  brief.days = (brief.days || []).map((day) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day.date || "")) throw new Error("brief: day needs a YYYY-MM-DD date");
+    day.meetings = (day.meetings || []).map((m) => {
+      if (!m.id || !kebab.test(m.id)) throw new Error("brief: bad meeting id " + m.id + " on " + day.date);
+      const item = (x, pre, where) => {
+        if (x.ref) { const r = resolve(x.ref); return r ? { src: r.src, id: r.id, text: r.text, done: !!r.done, owner: r.owner, shared: !!x.shared } : null; }
+        if (!x.id || !x.id.startsWith(pre + "-") || !kebab.test(x.id)) throw new Error("brief: " + where + " ids must be " + pre + "-<kebab> on " + m.id);
+        if (!x.text) throw new Error("brief: " + x.id + " needs text");
+        return { src: "brief", id: x.id, text: x.text, link: x.link || "", since: x.since || "" };
+      };
+      m.todos = (m.todos || []).map((x) => item(x, "bm", "my to do")).filter(Boolean);
+      m.owes = (m.owes || []).map((o) => {
+        if (!o.who || /@/.test(o.who)) throw new Error("brief: owes need a name (not an email) on " + m.id);
+        return { who: o.who, items: (o.items || []).map((x) => item(x, "bw", "owed item")).filter(Boolean) };
+      }).filter((o) => o.items.length);
+      return m;
+    });
+    return day;
+  });
   // Shipping: resolve Daily/Marketing refs to live text (same id, same tick); ship only items need ship- ids
   const shipIds = [], shipCardIds = (shipping.cards || []).map((c) => c.id), shipStages = (shipping.meta || {}).stages || [];
   if (new Set(shipCardIds).size !== shipCardIds.length) throw new Error("shipping: duplicate card ids");
@@ -131,7 +152,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const html = tpl.replace("/*__PAYLOAD__*/", () => blob);
 
   // leak guard: no task text, ids, or the password may appear in the output
-  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || []), ...u.subs.flatMap((x) => [x.id, x.text])]), ...(shipping.cards || []).flatMap((c) => [c.title, ...(c.summary || []), ...c.todos.flatMap((t) => [t.id, t.text]), ...(c.waiting || []).map((w) => w.text)])]
+  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || []), ...u.subs.flatMap((x) => [x.id, x.text])]), ...brief.days.flatMap((d) => d.meetings.flatMap((m) => [m.title, m.summary, m.note, ...(m.agenda || []).map((a) => a.text), ...m.todos.flatMap((x) => [x.id, x.text]), ...m.owes.flatMap((o) => o.items.flatMap((x) => [x.id, x.text]))])), ...(shipping.cards || []).flatMap((c) => [c.title, ...(c.summary || []), ...c.todos.flatMap((t) => [t.id, t.text]), ...(c.waiting || []).map((w) => w.text)])]
     .filter((s) => typeof s === "string" && s.length >= 12);
   const leaks = probes.filter((s) => html.includes(s));
   if (leaks.length) throw new Error("plaintext leak guard tripped (" + leaks.length + " strings). Not writing index.html.");
@@ -141,7 +162,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   if (!tpl.includes("Sync.start(data.sync)")) throw new Error("template is missing the checkmark sync code (see SYNC.md)");
   fs.writeFileSync(OUT, html);
   const mDone = marketing.projects.flatMap((p) => p.tasks).filter((t) => t.d).length;
-  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, brief ${bIds.length} updates (${brief.entries.reduce((n, u) => n + u.subs.filter((x) => x.src !== "brief").length, 0)} linked sub items, ${briefSubIds.length} brief only), shipping ${shipCardIds.length} cards (${shipIds.length} ship only to dos), ${html.length} bytes`);
+  console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, brief ${bIds.length} updates (${brief.entries.reduce((n, u) => n + u.subs.filter((x) => x.src !== "brief").length, 0)} linked sub items, ${briefSubIds.length} brief only; days ${brief.days.map((d) => d.date + ":" + d.meetings.length).join(" ") || "none"}), shipping ${shipCardIds.length} cards (${shipIds.length} ship only to dos), ${html.length} bytes`);
   if (!process.env.TODO_BUILD_OUT && !process.env.TODO_SYNC_NO_BACKUP) await syncBackup(sync);
 })().catch((e) => { console.error("BUILD FAILED: " + e.message); process.exit(1); });
 
