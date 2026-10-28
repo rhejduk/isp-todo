@@ -999,10 +999,10 @@ function renderBrief(B){
  function uniq(list){var s={},o=[];list.forEach(function(x){var k=x.src+":"+x.id;if(!s[k]){s[k]=1;o.push(x)}});return o}
  function mtgItems(m){return {mine:m.todos||[],owed:(m.owes||[]).reduce(function(a,o){return a.concat(o.items)},[])}}
  function bar(done,total,label){var p=total?Math.round(done/total*100):0;return '<div class="br-bar" role="img" aria-label="'+esc(label+": "+done+" of "+total+" done")+'"><i style="width:'+p+'%"></i></div>'}
- function listHtml(items,cap,mk){
+ function listHtml(items,cap,mk,lk){
   var open=items.filter(function(s){return !subDone(s)}).sort(function(a,b){return (b.urgent?1:0)-(a.urgent?1:0)}),done=items.filter(subDone),all=open.concat(done);
   var head=all.slice(0,cap),rest=all.slice(cap);
-  return '<ul class="br-list">'+head.map(mk).join("")+'</ul>'+(rest.length?'<details class="br-more"><summary>'+rest.length+' more</summary><ul class="br-list">'+rest.map(mk).join("")+'</ul></details>':'');
+  return '<ul class="br-list">'+head.map(mk).join("")+'</ul>'+(rest.length?'<details class="br-more" data-more="'+esc(lk||"")+'"'+((pref("briefMoreOpen")||{})[lk]?' open':'')+'><summary>'+rest.length+' more</summary><ul class="br-list">'+rest.map(mk).join("")+'</ul></details>':'');
  }
  function mineHtml(s){return subHtml(s,(s.shared?' <span class="chip">Shared with PMs</span>':'')+(s.link?link(s.link,"source"):''))}
  function owedHtml(s){return subHtml(s,(s.since?' <span class="br-since">'+esc(s.since)+'</span>':'')+(s.link?link(s.link,"source"):''))}
@@ -1017,11 +1017,11 @@ function renderBrief(B){
    bar(md,I.mine.length,"My to dos")+'</div></div></summary><div class="br-body">';
   if(m.note)h+='<div class="pjnote">'+esc(m.note)+'</div>';
   if((m.agenda||[]).length)h+='<div class="pjsec ag"><h4>Agenda</h4><ol>'+m.agenda.map(function(a){return '<li>'+esc(a.text)+(a.pinned?' <span class="chip flag">Pinned</span>':'')+'</li>'}).join("")+'</ol></div>';
-  h+='<div class="pjsec td"><h4>My to dos<span>'+md+' of '+I.mine.length+' done</span></h4>'+(I.mine.length?listHtml(I.mine,6,mineHtml):'<p class="note">Nothing on my lists for this one.</p>')+'</div>';
+  h+='<div class="pjsec td"><h4>My to dos<span>'+md+' of '+I.mine.length+' done</span></h4>'+(I.mine.length?listHtml(I.mine,6,mineHtml,key+"|mine"):'<p class="note">Nothing on my lists for this one.</p>')+'</div>';
   h+='<div class="pjsec wt"><h4>Who owes what<span>'+(I.owed.length-od)+' open</span></h4>';
   if(!(m.owes||[]).length)h+='<p class="note">Nobody owes me anything for this one.</p>';
   (m.owes||[]).forEach(function(o){var oo=o.items.filter(function(s){return !subDone(s)}).length;
-   h+='<div class="br-who"><div class="br-whoh"><b>'+esc(o.who)+'</b><span>'+oo+' of '+o.items.length+' open</span></div>'+listHtml(o.items,4,owedHtml)+'</div>'});
+   h+='<div class="br-who"><div class="br-whoh"><b>'+esc(o.who)+'</b><span>'+oo+' of '+o.items.length+' open</span></div>'+listHtml(o.items,4,owedHtml,key+"|owe|"+o.who)+'</div>'});
   h+='</div>';
   if((m.attendees||[]).length)h+='<div class="pjwho">With '+esc(m.attendees.join(", "))+'</div>';
   h+='<div class="pjsrc">'+(m.calendar_url?'<a href="'+esc(safeUrl(m.calendar_url)||"#")+'" target="_blank" rel="noopener">Open in Calendar</a>':'')+srcs+'</div></div></details>';
@@ -1077,7 +1077,8 @@ function renderBrief(B){
  el.addEventListener("click",function(e){if(e.target.classList.contains("hideBtn"))setHide(!hideDone)});
  el.addEventListener("toggle",function(e){var d=e.target;if(!d.classList)return;
   if(d.classList.contains("br-sec")){var c=pref("briefClosed")||{},k=d.getAttribute("data-proj");if(d.open)delete c[k];else c[k]=1;pref("briefClosed",c)}
-  else if(d.classList.contains("br-mtg")){var o=pref("briefMtgOpen")||{};o[d.getAttribute("data-key")]=d.open?1:0;pref("briefMtgOpen",o)}},true);
+  else if(d.classList.contains("br-mtg")){var o=pref("briefMtgOpen")||{};o[d.getAttribute("data-key")]=d.open?1:0;pref("briefMtgOpen",o)}
+  else if(d.classList.contains("br-more")){var mo=pref("briefMoreOpen")||{},mk=d.getAttribute("data-more");if(d.open)mo[mk]=1;else delete mo[mk];pref("briefMoreOpen",mo)}},true);
  var hook=function(){draw()};SYNC_HOOKS.push(hook);BRIEF_DRAW=draw;
  draw();
 }
