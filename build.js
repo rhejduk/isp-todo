@@ -55,7 +55,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const vIdx = Object.fromEntries(dave.tasks.map((t) => [t.task_id, t]));
   const missing = [];
   function resolve(r) {
-    if (r.src === "daily" && dIdx[r.id]) { const t = dIdx[r.id]; return { src: "daily", id: t.task_id, text: t.action, owner: "Rachel", with: t.collaborators || [], due: t.due_date || "", project: t.project, urgent: !!t.urgent }; }
+    if (r.src === "daily" && dIdx[r.id]) { const t = dIdx[r.id]; return { src: "daily", id: t.task_id, text: t.action, owner: "Rachel", with: t.collaborators || [], due: t.due_date || "", project: t.project, urgent: !!t.urgent, links: (t.links || []).filter((l) => l && l.label && /^https?:\/\//.test(l.url || "")) }; }
     if (r.src === "marketing" && mIdx[r.id]) { const { t, p } = mIdx[r.id]; return { src: "marketing", id: t.id, text: t.t, owner: t.o || "PMs", with: t.w ? [t.w] : [], due: "", project: p.name, done: !!t.d }; }
     if (r.src === "dave" && vIdx[r.id]) { const t = vIdx[r.id]; return { src: "dave", id: t.task_id, text: t.action, owner: "Rachel", with: ["Dave"], due: t.due_date || "", project: t.project }; }
     missing.push(r.src + ":" + r.id); return null;
@@ -79,7 +79,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
         if (!["daily", "marketing"].includes(s.ref.src)) throw new Error("brief: sub ref src must be daily or marketing on " + u.id);
         const r = resolve(s.ref); if (!r) return null;
         if (seen.has(r.id)) throw new Error("brief: duplicate sub " + r.id + " on " + u.id); seen.add(r.id);
-        return { src: r.src, id: r.id, text: r.text, done: !!r.done };
+        return { src: r.src, id: r.id, text: r.text, done: !!r.done, links: r.links || [] };
       }
       if (!s.id || !s.id.startsWith(u.id + "-a") || !/-a[0-9]+$/.test(s.id)) throw new Error("brief: brief only sub ids must be <entry id>-aN on " + u.id);
       if (allTodo.has(s.id)) throw new Error("brief: sub id collides with a to do id: " + s.id);
@@ -97,7 +97,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
     day.meetings = (day.meetings || []).map((m) => {
       if (!m.id || !kebab.test(m.id)) throw new Error("brief: bad meeting id " + m.id + " on " + day.date);
       const item = (x, pre, where) => {
-        if (x.ref) { const r = resolve(x.ref); return r ? { src: r.src, id: r.id, text: r.text, done: !!r.done, owner: r.owner, shared: !!x.shared, urgent: !!r.urgent } : null; }
+        if (x.ref) { const r = resolve(x.ref); return r ? { src: r.src, id: r.id, text: r.text, done: !!r.done, owner: r.owner, shared: !!x.shared, urgent: !!r.urgent, links: r.links || [] } : null; }
         if (!x.id || !x.id.startsWith(pre + "-") || !kebab.test(x.id)) throw new Error("brief: " + where + " ids must be " + pre + "-<kebab> on " + m.id);
         if (!x.text) throw new Error("brief: " + x.id + " needs text");
         return { src: "brief", id: x.id, text: x.text, link: x.link || "", since: x.since || "" };

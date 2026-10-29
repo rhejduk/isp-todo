@@ -330,6 +330,10 @@ li.bsub .cb{width:20px;height:20px}
 li.bsub .cb span{border-radius:7px}
 li.bsub .cb span::after{left:5px;top:2px;width:5px;height:9px}
 li.bsub .st{flex:1;min-width:0}
+.tlinks{margin:3px 0 0}
+a.tlink{display:inline-block;font-size:.8rem;font-weight:700;margin:2px 6px 0 0;padding:1px 9px;border-radius:999px;background:rgba(205,184,242,.3);color:var(--plum2);text-decoration:none}
+a.tlink:hover{text-decoration:underline}
+li.bsub a.tlink{margin-left:6px}
 li.bsub .chip{flex:none;align-self:center}
 li.bsub.done .st{text-decoration:line-through;text-decoration-color:rgba(224,120,159,.6);color:#9a89ab}
 @media (max-width:520px){li.bsub{flex-wrap:wrap}li.bsub .st{flex:1 1 calc(100% - 30px)}li.bsub .chip{margin-left:29px}}
@@ -728,6 +732,7 @@ if(rk){crypto.subtle.importKey("raw",b64d(rk),{name:"AES-GCM"},false,["decrypt"]
 /* ---------- rendering helpers ---------- */
 function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function safeUrl(u){return /^https?:\/\//i.test(u||"")?u:""}
+function tLinks(L){return (L||[]).map(function(l){var u=safeUrl(l&&l.url);return u?' <a class="tlink" href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(l.label||"Open")+'</a>':""}).join("")}
 function fmtDate(iso){if(!iso)return "";var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
 function dayKey(ts){return new Date(ts).toLocaleDateString("en-US",{timeZone:"America/New_York"})}
 function xcheck(x){
@@ -759,7 +764,7 @@ function renderDaily(D){
   var on=!!ticks[t.task_id],w=isWip(t);
   var chips=(t.urgent?'<span class="chip urgent">Urgent</span>':'')+'<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
   var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
-  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
    '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
  }
  function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
@@ -916,7 +921,7 @@ function renderDave(V){
   var on=!!ticks[t.task_id],w=isWip(t),pr=t.priority==="high"&&!on;
   var chips='<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.status==="waiting_on_dave"&&!on?'<span class="chip wait">Waiting on Dave</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
   var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
-  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(pr?' prio':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(pr?' prio':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
    '<details'+(pr?' open':'')+'><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
  }
  function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
@@ -985,7 +990,7 @@ function renderBrief(B){
  function openSubs(u){if(entryDone(u))return 0;var S=subs(u);return S.length?S.filter(function(s){return !subDone(s)}).length:1}
  function when(iso){var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
  function link(u,t){var x=safeUrl(u);return x?' <a class="go" href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(t||"open")+'</a>':''}
- function subHtml(s,extra){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+(s.urgent?' urgent':'')+'" data-sub="'+esc(s.id)+'" data-src="'+esc(s.src)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+(s.urgent?'<span class="chip urgent">Urgent</span> ':'')+esc(s.text)+(extra||'')+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
+ function subHtml(s,extra){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+(s.urgent?' urgent':'')+'" data-sub="'+esc(s.id)+'" data-src="'+esc(s.src)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+(s.urgent?'<span class="chip urgent">Urgent</span> ':'')+esc(s.text)+tLinks(s.links)+(extra||'')+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
  function itemHtml(u){
   var own=!!bt[u.id],on=entryDone(u),S=subs(u),sd=S.filter(subDone).length;
   var srcs=(u.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
