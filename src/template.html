@@ -222,6 +222,15 @@ body.calm li.task.wip{animation:none}
 li.task.wip .what::before{content:"";display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 15V8' stroke='%235f9e80' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M8 9C8 6 6 4 3 4c0 3 2 5 5 5z' fill='%238fd3b3'/%3E%3Cpath d='M8 8c0-3 2-5 5-5 0 3-2 5-5 5z' fill='%23a9dfc3'/%3E%3C/svg%3E") no-repeat center/contain}
 li.task.wip.sprouting .what::before{animation:sproutUp .6s cubic-bezier(.3,1.8,.4,1)}
 @keyframes sproutUp{from{transform:scale(0) translateY(6px)}}
+.daynote{background:linear-gradient(135deg,rgba(255,236,226,.95),rgba(236,227,255,.92))}
+.daynote>details{margin-top:0}
+.daynote>details>summary{font:700 1.08rem var(--f-head);color:var(--plum);list-style:none;display:flex;align-items:center;gap:10px;cursor:pointer;width:auto}
+.daynote>details>summary::-webkit-details-marker{display:none}
+.daynote>details>summary::after{content:"\25BE";margin-left:auto;color:var(--plum2);transition:transform .2s}
+.daynote>details:not([open])>summary::after{transform:rotate(-90deg)}
+.daynote h4{margin:14px 0 4px;font:800 .78rem var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--plum2)}
+.daynote ul,.daynote ol{margin:0;padding-left:20px}
+.daynote li{font-size:.92rem;margin:4px 0;word-break:break-word}
 .wipbox{background:linear-gradient(135deg,rgba(236,227,255,.95),rgba(255,247,220,.92))}
 .wipbox>details>summary{font:700 1.08rem var(--f-head);color:var(--plum);list-style:none;display:flex;align-items:center;gap:10px;cursor:pointer}
 .wipbox>details>summary::-webkit-details-marker{display:none}
@@ -741,6 +750,13 @@ function xcheck(x){
   (x.updated_at?'<p class="note" style="margin-left:0">Checked '+fmtDate(x.updated_at)+'</p>':'')+'<ul>'+notes.map(function(n){return '<li>'+esc(typeof n==="string"?n:n.text)+'</li>'}).join("")+'</ul>'
   :'<p class="empty">Nothing here yet. Each refresh will compare this list with Claude\'s and note any differences here.</p>')+'</div>';
 }
+function dayNotes(N){
+ var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
+ return (N||[]).filter(function(n){return n&&n.date===today}).map(function(n){
+  return '<div class="card daynote"><details><summary>'+bloom("#ffc9a8")+esc(n.title||"Today's update")+'</summary>'+
+   (n.sections||[]).map(function(x){var tg=x.ordered?"ol":"ul";return '<h4>'+esc(x.h||"")+'</h4><'+tg+'>'+(x.items||[]).map(function(i){return '<li>'+esc(i.text||"")+((i.links||[]).length?'<div class="tlinks">'+tLinks(i.links)+'</div>':'')+'</li>'}).join("")+'</'+tg+'>'}).join("")+
+   '</details></div>'}).join("");
+}
 var hideDone=pref("hideDone")===true;
 function setHide(on){hideDone=on;document.body.classList.toggle("hide-done",on);pref("hideDone",on);$$(".hideBtn").forEach(function(b){b.textContent=on?"Show finished":"Hide finished"})}
 var SPROUT='<svg class="sprout" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 15V8" stroke="#5f9e80" stroke-width="1.6" stroke-linecap="round"/><path d="M8 9C8 6 6 4 3 4c0 3 2 5 5 5z" fill="#8fd3b3"/><path d="M8 8c0-3 2-5 5-5 0 3-2 5-5 5z" fill="#a9dfc3"/></svg>';
@@ -779,7 +795,7 @@ function renderDaily(D){
    vineHtml("daily")+'<div class="vinelbl">'+done+' of '+total+' done ('+pct+'%)'+(pct>=100?'. Your garden is in full bloom!':'')+'</div>'+
    '<div class="strip"><div><b>'+(total-done)+'</b><span>Active</span></div><div><b>'+openIn("top_priorities")+'</b><span>Top priorities</span></div><div><b>'+openIn("new_since_last_digest")+'</b><span>New since last digest</span></div><div><b>'+openIn("follow_ups_and_waiting")+'</b><span>Follow-ups</span></div><div><b>'+pn.length+'</b><span>Project groups</span></div><div class="wipt"><b>'+W.length+'</b><span>In progress</span></div></div>'+
    '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
-   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>'+xcheck(D.crosscheck)+
+   '<div class="tools"><button type="button" class="hideBtn"></button></div></div>'+dayNotes(D.day_notes)+xcheck(D.crosscheck)+
    '<div class="card wipbox" id="wipGroup"><details'+(pref("wipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
    (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on any task and it will wait for you up here while you work on it.</p>')+'</details></div>';
   SEC.forEach(function(s){
