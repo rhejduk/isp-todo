@@ -209,6 +209,15 @@ summary{font-size:.82rem;color:#8a4fc7;cursor:pointer;font-weight:700;width:max-
 .lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:14px}
 .lanes div{border-radius:16px;padding:8px 12px;font-size:.8rem;background:var(--oc);color:var(--ot)}
 .lanes b{display:block;font:700 1rem var(--f-head)}
+.lanes button.lanebtn{border:0;border-radius:16px;padding:8px 12px;font:inherit;font-size:.8rem;background:var(--oc);color:var(--ot);text-align:left;cursor:pointer}
+.lanes button.lanebtn[aria-pressed="true"]{outline:3px solid var(--ot);outline-offset:1px}
+.lanes button.lanebtn:focus-visible{outline:3px solid var(--plum2)}
+.lanehint{font-size:.78rem;color:#8b7a9c;margin-top:6px}
+.lanebar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.pv h4.pvb{margin:14px 0 4px;font:700 1rem var(--f-head)}
+.pv .pvhours{font-size:.85rem;margin:6px 0 0}
+li.task .pvsrc{display:block;font-size:.76rem;color:#8b7a9c}
+.chip.dash{background:#ece3ff;color:#5e4778}
 .pcard.complete{box-shadow:0 0 0 2px rgba(255,215,106,.7),var(--shadow)}
 body.hide-done li.task.done{display:none}
 .wip-btn{flex:none;align-self:flex-start;display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 11px;border-radius:999px;border:1.5px dashed #d6b8e8;background:rgba(255,255,255,.85);color:#8a74a3;font-size:.74rem;font-weight:800;white-space:nowrap;transition:background .25s,border-color .25s,color .25s,box-shadow .25s}
@@ -871,17 +880,38 @@ function renderMarketing(M){
  function s4refresh(p){var box=el.querySelector('.s4[data-s4p="'+CSS.escape(p.name)+'"]');if(!box)return;box.querySelector(".s4top").innerHTML=s4bar(p);
   $$("[data-s4sec]",box).forEach(function(pl){var sec=pl.getAttribute("data-s4sec"),xs=p.deliverables.filter(function(d){return d.sec===sec});pl.textContent=xs.filter(dDone).length+" of "+xs.length+" done"})}
  el.addEventListener("toggle",function(e){var k=e.target.getAttribute&&e.target.getAttribute("data-s4k");if(k==null)return;if(e.target.open)s4open[k]=1;else delete s4open[k];pref("s4open",s4open)},true);
+ var lane=pref("mktLane")||"",PEO=M.people||{};
+ if(lane&&!LANES.some(function(l){return l[0]===lane}))lane="";
+ var TIDX={};PR.forEach(function(p){p.tasks.forEach(function(t){TIDX[t.id]={t:t,p:p}})});
+ function fmtSd(sd){return sd?new Date(sd+"T12:00:00Z").toLocaleDateString("en-US",{month:"short",day:"numeric"}):""}
+ /* One list per person: their people[] items (linked ids share ticks with the project cards) plus any of their project-card tasks not already listed */
+ function personItems(name){var V=PEO[name],seen={},out=[];
+  ((V&&V.items)||[]).forEach(function(x){seen[x.id]=1;var ln=TIDX[x.id];out.push({id:x.id,brand:x.brand,t:x.t||(ln&&ln.t.t)||"",st:x.st,stw:x.stw,due:x.due,src:x.src,sd:x.sd,dash:x.dash,d:ln?!!ln.t.d||x.st==="done":x.st==="done"})});
+  PR.forEach(function(p){p.tasks.forEach(function(t){if((t.o||"PMs")===name&&!seen[t.id]){seen[t.id]=1;out.push({id:t.id,brand:p.name,t:t.t,st:t.d?"done":"open",src:t.w+(p.date?", "+p.name+" card (latest meeting "+p.date+")":""),d:!!t.d})}})});
+  return out}
+ function pDone(x){return ticks.hasOwnProperty(x.id)?ticks[x.id]===1:x.d}
+ function pItemHtml(x){var on=pDone(x),w=!on&&!!wip[x.id],st=on?"done":(ticks.hasOwnProperty(x.id)&&x.d?"unticked":(x.st||"open"));
+  var lbl=st==="waiting on"?"waiting on "+(x.stw||""):st==="unticked"?"unticked by you":st,sd=fmtSd(x.sd);
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+'" data-id="'+esc(x.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(x.t)+'</span><span class="who"><span class="stag '+stCls(st)+'">'+esc(lbl)+'</span>'+(x.due?'<span class="chip due">Due: '+esc(x.due)+'</span> ':'')+(x.dash?'<span class="chip dash">Dash</span>':'')+'</span><span class="pvsrc">'+esc(x.src||"")+(sd?", "+esc(sd):"")+'</span></div>'+(on?'':wipBtn(w))+'</li>'}
+ function personCard(name){var V=PEO[name]||{},xs=personItems(name),brands=[];xs.forEach(function(x){if(brands.indexOf(x.brand)<0)brands.push(x.brand)});
+  var dn=xs.filter(pDone).length,dsh=xs.filter(function(x){return x.dash}).length;
+  return '<div class="card pv" data-pv="'+esc(name)+'"><h3>'+esc(V.title||name+": all tasks")+' <span class="pill">'+dn+' of '+xs.length+' done</span>'+(dsh?'<span class="pill">'+dsh+' from Dash</span>':'')+'</h3>'+
+   (V.note?'<p class="why">'+esc(V.note)+(V.updated?' Updated '+esc(V.updated)+'.':'')+'</p>':'')+(V.hours?'<p class="pvhours"><b>Hours:</b> '+esc(V.hours)+'</p>':'')+
+   brands.map(function(b){var bs=xs.filter(function(x){return x.brand===b});return '<h4 class="pvb">'+esc(b)+' <span class="pill">'+bs.filter(pDone).length+' of '+bs.length+' done</span></h4><ul class="tasks">'+bs.map(pItemHtml).join("")+'</ul>'}).join("")+'</div>'}
  function draw(){
   clearTimeout(drawT);
   var all=allTasks(),done=all.filter(isDone).length,total=all.length,pct=total?Math.round(done/total*100):0,m=M.meta||{};
   var h='<div class="card"><h2>Marketing Checklist</h2><p class="sub">Getting each product ready to launch. Stage 4 means production is running and nothing has sold yet (a preorder still counts as not sold). Stage 5 means it is selling.</p>'+
-   '<div class="lanes">'+LANES.filter(function(l){return l[0]!=="PMs"}).map(function(l){return '<div class="'+ocls(l[0])+'"><b>'+esc(l[0])+'</b>'+esc(l[1])+'</div>'}).join("")+'</div>'+
+   '<div class="lanes">'+LANES.filter(function(l){return l[0]!=="PMs"}).map(function(l){return '<button type="button" class="lanebtn '+ocls(l[0])+'" data-lane="'+esc(l[0])+'" aria-pressed="'+(lane===l[0])+'"><b>'+esc(l[0])+'</b>'+esc(l[1])+'</button>'}).join("")+'</div>'+
+   '<p class="lanehint">Tap a name to see only their tasks. Tap it again to see everyone.</p>'+
    vineHtml("mkt")+'<div class="vinelbl">'+done+' of '+total+' tasks done ('+pct+'%)</div>'+
    '<div class="strip"><div><b>'+(total-done)+'</b><span>Open</span></div><div class="wipt"><b>'+all.filter(isWip).length+'</b><span>In progress</span></div><div><b>'+done+'</b><span>Done</span></div><div><b>'+PR.length+'</b><span>Projects</span></div></div>'+
    '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button><button type="button" class="clearBtn">Clear my ticks</button></div></div>'+xcheck(M.crosscheck);
+  if(lane){h+='<div class="lanebar"><span class="chip">Showing '+esc(lane)+' only</span><button type="button" class="laneAll">Show everyone</button></div>';if(PEO[lane])h+=personCard(lane)}
   var last=null;
   PR.forEach(function(p,pi){
+   if(lane&&(PEO[lane]||!p.tasks.some(function(t){return (t.o||"PMs")===lane})))return;
    if(p.stage!==last){last=p.stage;var stT=[];PR.filter(function(q){return q.stage===p.stage}).forEach(function(q){stT=stT.concat(q.tasks)});var sec=SECS[p.stage]||["Other","","#9fdcbf"];
     h+='<div class="sechead">'+bloom(sec[2])+'<h2>'+sec[0]+'</h2><span class="pill">'+stT.filter(isDone).length+' of '+stT.length+' done</span></div><p class="note">'+sec[1]+'</p>'}
    var pd=p.tasks.filter(isDone).length,pw=p.tasks.filter(isWip).length,full=p.tasks.length&&pd===p.tasks.length;
@@ -892,8 +922,8 @@ function renderMarketing(M){
     '<div class="minivine"><i style="width:'+(p.tasks.length?Math.round(pd/p.tasks.length*100):0)+'%"></i></div>'+
     (p.why?'<p class="why">'+esc(p.why)+(p.date?' Latest meeting: '+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(p.date)+'</a>':esc(p.date))+'.':'')+'</p>':'')+
     s4block(p)+
-    LANES.map(function(l){var ts=p.tasks.filter(function(t){return (t.o||"PMs")===l[0]});if(!ts.length)return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
-    (rest.length?'<div class="og"><h4>Others</h4><ul class="tasks">'+rest.map(taskHtml).join("")+'</ul></div>':"")+'</div>';
+    LANES.map(function(l){var ts=p.tasks.filter(function(t){return (t.o||"PMs")===l[0]});if(!ts.length||(lane&&lane!==l[0]))return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
+    (rest.length&&!lane?'<div class="og"><h4>Others</h4><ul class="tasks">'+rest.map(taskHtml).join("")+'</ul></div>':"")+'</div>';
   });
   el.innerHTML=h;growVine(el,"mkt",pct);counts.m=total-done;$("#nMkt").textContent=total-done;updateGreet();setHide(hideDone);
  }
@@ -908,15 +938,17 @@ function renderMarketing(M){
    return}
   var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id");
   if(!e.target.checked){ticks[id]=0;store(MKEY,ticks);draw();return}
-  var card=li.closest(".pcard"),p=PR[+card.getAttribute("data-p")];
+  var card=li.closest(".pcard"),p=card?PR[+card.getAttribute("data-p")]:null;
   ticks[id]=1;store(MKEY,ticks);if(wip[id]){delete wip[id];store(MWKEY,wip)}
   var c=centerOf(e.target);burst(c[0],c[1],false);chime(false);
   li.classList.remove("wip");var wb=li.querySelector(".wip-btn");if(wb)wb.remove();li.classList.add("done","pop","shine");drawT=setTimeout(draw,reduced()?0:900);
   var all=allTasks();
   if(all.every(isDone))setTimeout(function(){celebrate(null,"The whole checklist is done. Incredible!")},450);
-  else if(p.tasks.every(isDone))setTimeout(function(){celebrate(card,p.name+" is all done. Time to celebrate!")},450);
+  else if(p&&p.tasks.every(isDone))setTimeout(function(){celebrate(card,p.name+" is all done. Time to celebrate!")},450);
  });
  el.addEventListener("click",function(e){
+  var lb=e.target.closest(".lanebtn");if(lb){var nm=lb.getAttribute("data-lane");lane=lane===nm?"":nm;pref("mktLane",lane);draw();var nb=el.querySelector('.lanebtn[data-lane="'+CSS.escape(nm)+'"]');if(nb)nb.focus();return}
+  if(e.target.closest(".laneAll")){lane="";pref("mktLane","");draw();return}
   var b=e.target.closest(".wip-btn");if(b){var li=b.closest("li.task"),id=li.getAttribute("data-id");
    if(wip[id]){delete wip[id];store(MWKEY,wip);draw();return}
    wip[id]=Date.now();store(MWKEY,wip);var c=centerOf(b);burst(c[0],c[1],"small");b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:600);return}

@@ -36,6 +36,13 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const kebab = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   const dIds = daily.tasks.map((t) => t.task_id), mIds = marketing.projects.flatMap((p) => p.tasks.map((t) => t.id));
   const vIds = dave.tasks.map((t) => t.task_id);
+  // Marketing tab people view (click a lane name): ids are existing marketing task ids or new cv- ids
+  for (const [pn, pv] of Object.entries(marketing.people || {})) {
+    const pIds = (pv.items || []).map((x) => x.id), mSet = new Set(marketing.projects.flatMap((p) => p.tasks.map((t) => t.id)));
+    if (new Set(pIds).size !== pIds.length) throw new Error("people " + pn + ": duplicate ids");
+    const badP = pIds.filter((i) => !mSet.has(i) && !/^cv-[a-z0-9]+(-[a-z0-9]+)*$/.test(i));
+    if (badP.length) throw new Error("people " + pn + ": ids must be marketing task ids or start with cv-: " + badP.join(", "));
+  }
   // Stage 4 checklist deliverables (see STAGE4_DELIVERABLES.md): ids must stay stable so ticks survive refreshes
   const sIds = marketing.projects.flatMap((p) => (p.deliverables || []).map((d) => d.id));
   if (sIds.some((i) => !/^s4-/.test(i))) throw new Error("stage4: deliverable ids must start with s4-");
@@ -155,7 +162,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const html = tpl.replace("/*__PAYLOAD__*/", () => blob);
 
   // leak guard: no task text, ids, or the password may appear in the output
-  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...dayNotes.flatMap((n) => [n.title, ...(n.sections || []).flatMap((x) => (x.items || []).map((i) => i.text))]), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || []), ...u.subs.flatMap((x) => [x.id, x.text])]), ...brief.days.flatMap((d) => d.meetings.flatMap((m) => [m.title, m.summary, m.note, ...(m.agenda || []).map((a) => a.text), ...m.todos.flatMap((x) => [x.id, x.text]), ...m.owes.flatMap((o) => o.items.flatMap((x) => [x.id, x.text]))])), ...(shipping.cards || []).flatMap((c) => [c.title, ...(c.summary || []), ...c.todos.flatMap((t) => [t.id, t.text]), ...(c.waiting || []).map((w) => w.text)])]
+  const probes = [pw, sync.id, sync.k, sync.id.slice(8), ...dayNotes.flatMap((n) => [n.title, ...(n.sections || []).flatMap((x) => (x.items || []).map((i) => i.text))]), ...daily.tasks.flatMap((t) => [t.action, t.task_id]), ...dave.tasks.flatMap((t) => [t.action, t.task_id, t.context]), ...Object.values(marketing.people || {}).flatMap((pv) => [pv.note, pv.hours, ...(pv.items || []).flatMap((x) => [x.t, x.id])]), ...marketing.projects.flatMap((p) => [p.why, ...p.tasks.flatMap((t) => [t.t, t.id]), ...(p.deliverables || []).flatMap((d) => [d.t, d.note, d.id])]), ...(projects.cards || []).flatMap((c) => [c.title, c.note, ...(c.status || []), ...(c.agenda || []), ...(c.waiting || []).map((w) => w.text)]), ...brief.entries.flatMap((u) => [u.id, u.headline, u.next_step, ...(u.bullets || []), ...u.subs.flatMap((x) => [x.id, x.text])]), ...brief.days.flatMap((d) => d.meetings.flatMap((m) => [m.title, m.summary, m.note, ...(m.agenda || []).map((a) => a.text), ...m.todos.flatMap((x) => [x.id, x.text]), ...m.owes.flatMap((o) => o.items.flatMap((x) => [x.id, x.text]))])), ...(shipping.cards || []).flatMap((c) => [c.title, ...(c.summary || []), ...c.todos.flatMap((t) => [t.id, t.text]), ...(c.waiting || []).map((w) => w.text)])]
     .filter((s) => typeof s === "string" && s.length >= 12);
   const leaks = probes.filter((s) => html.includes(s));
   if (leaks.length) throw new Error("plaintext leak guard tripped (" + leaks.length + " strings). Not writing index.html.");
