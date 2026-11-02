@@ -306,6 +306,9 @@ body.calm .dave-hero .lamp{opacity:.6}
 .standup .moon{width:70px;height:70px;margin:0 auto 10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fffaeb,#ffe7a3 60%,#e9b949);box-shadow:0 0 30px rgba(255,215,106,.6)}
 .standup p{margin:8px auto;max-width:52ch}
 .standup.sent{text-align:left}
+.standup .sp-h{margin:18px 0 6px;font-size:1.02em}
+.standup .sp-ul{margin:0 0 6px;padding-left:20px}
+.standup .sp-ul li{margin:4px 0;line-height:1.45}
 #toast{position:fixed;left:50%;bottom:calc(var(--garden-h) + 16px);transform:translate(-50%,20px);z-index:70;background:linear-gradient(120deg,#fff3c4,#ffe3ec,#ece3ff);color:var(--plum);font:700 1rem var(--f-head);padding:10px 20px;border-radius:999px;box-shadow:0 10px 30px rgba(160,100,180,.3);opacity:0;pointer-events:none;transition:opacity .4s,transform .4s;text-align:center;max-width:90vw}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 footer{color:var(--soft);font-size:.8rem;text-align:center;margin-top:30px}
@@ -1164,7 +1167,7 @@ function renderShipping(S){
 function renderStandup(S){
  var el=$("#tab-standup");
  if(!S||S.status!=="sent"){el.innerHTML='<div class="card standup"><div class="moon" aria-hidden="true"></div><h2>Weekly Standup</h2><p>Your standup email goes out every Monday at 8 AM ET. After its first run on Monday, Oct 26, a summary of it will show up here.</p></div>';return}
- el.innerHTML='<div class="card standup sent"><h2>Weekly Standup</h2><p class="sub">Sent '+fmtDate(S.sent_at)+(S.subject?', "'+esc(S.subject)+'"':'')+'</p>'+(S.summary||[]).map(function(x){return '<p>'+esc(x)+'</p>'}).join("")+'</div>';
+ el.innerHTML='<div class="card standup sent"><h2>Weekly Standup</h2><p class="sub">Sent '+fmtDate(S.sent_at)+(S.subject?', "'+esc(S.subject)+'"':'')+'</p>'+(S.projects&&S.projects.length?((S.range?'<p class="sub"><b>'+esc(S.range)+'</b></p>':'')+S.projects.map(function(p){return '<h3 class="sp-h">'+esc(p.name)+'</h3><ul class="sp-ul">'+(p.bullets||[]).map(function(b){return '<li>'+esc(b)+'</li>'}).join("")+'</ul>'}).join("")):(S.summary||[]).map(function(x){return '<p>'+esc(x)+'</p>'}).join(""))+'</div>';
 }
 
 /* ---------- Projects (meeting prep) ---------- */
