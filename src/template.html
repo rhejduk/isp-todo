@@ -756,12 +756,7 @@ function safeUrl(u){return /^https?:\/\//i.test(u||"")?u:""}
 function tLinks(L){return (L||[]).map(function(l){var u=safeUrl(l&&l.url);return u?' <a class="tlink" href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(l.label||"Open")+'</a>':""}).join("")}
 function fmtDate(iso){if(!iso)return "";var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
 function dayKey(ts){return new Date(ts).toLocaleDateString("en-US",{timeZone:"America/New_York"})}
-function xcheck(x){
- var notes=(x&&x.notes)||[];
- return '<div class="card xcheck"><h3>Cross-check with Claude</h3>'+(notes.length?
-  (x.updated_at?'<p class="note" style="margin-left:0">Checked '+fmtDate(x.updated_at)+'</p>':'')+'<ul>'+notes.map(function(n){return '<li>'+esc(typeof n==="string"?n:n.text)+'</li>'}).join("")+'</ul>'
-  :'<p class="empty">Nothing here yet. Each refresh will compare this list with Claude\'s and note any differences here.</p>')+'</div>';
-}
+function xcheck(x){return ""}
 function dayNotes(N){
  var today=new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
  return (N||[]).filter(function(n){return n&&n.date===today}).map(function(n){
@@ -784,14 +779,14 @@ function renderDaily(D){
  var ticks=load(DKEY),wip=load(WKEY),T=D.tasks,el=$("#tab-daily"),drawT=0;
  function isWip(t){return !ticks[t.task_id]&&!!wip[t.task_id]}
  var SEC=[["top_priorities","Top priorities","Urgent, blocking, or deadline driven actions that are yours.","#f7a8c4"],
-  ["new_since_last_digest","New since last digest","New actions that showed up after the last list.","#9fdcbf"],
+  ["new_since_last_digest","New since last update","New actions that showed up after the last list.","#9fdcbf"],
   ["follow_ups_and_waiting","Follow-ups and waiting","Follow-ups and next steps still waiting on you.","#cdb8f2"],
   ["by_project","By project","Everything else, grouped by project.","#ffc9a8"]];
  var NAMES={};SEC.forEach(function(s){NAMES[s[0]]=s[1]});
  function taskHtml(t,inGroup){
   var on=!!ticks[t.task_id],w=isWip(t);
   var chips=(t.urgent?'<span class="chip urgent">Urgent</span>':'')+'<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
-  var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
+  var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Meeting":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
   return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
    '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
  }
@@ -805,8 +800,8 @@ function renderDaily(D){
   var W=T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)});
   var h='<div class="card"><h2>Daily To Do</h2><p class="sub">Only tasks assigned to you, committed to by you, or waiting on you. List for '+esc(m.list_date_label||m.list_date)+'.</p>'+
    vineHtml("daily")+'<div class="vinelbl">'+done+' of '+total+' done ('+pct+'%)'+(pct>=100?'. Your garden is in full bloom!':'')+'</div>'+
-   '<div class="strip"><div><b>'+(total-done)+'</b><span>Active</span></div><div><b>'+openIn("top_priorities")+'</b><span>Top priorities</span></div><div><b>'+openIn("new_since_last_digest")+'</b><span>New since last digest</span></div><div><b>'+openIn("follow_ups_and_waiting")+'</b><span>Follow-ups</span></div><div><b>'+pn.length+'</b><span>Project groups</span></div><div class="wipt"><b>'+W.length+'</b><span>In progress</span></div></div>'+
-   '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
+   '<div class="strip"><div><b>'+(total-done)+'</b><span>Active</span></div><div><b>'+openIn("top_priorities")+'</b><span>Top priorities</span></div><div><b>'+openIn("new_since_last_digest")+'</b><span>New since last update</span></div><div><b>'+openIn("follow_ups_and_waiting")+'</b><span>Follow-ups</span></div><div><b>'+pn.length+'</b><span>Project groups</span></div><div class="wipt"><b>'+W.length+'</b><span>In progress</span></div></div>'+
+   '<div class="srcline">Sources: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+''+'</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button></div></div>'+dayNotes(D.day_notes)+xcheck(D.crosscheck)+
    '<div class="card wipbox" id="wipGroup"><details'+(pref("wipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
    (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on any task and it will wait for you up here while you work on it.</p>')+'</details></div>';
@@ -818,6 +813,9 @@ function renderDaily(D){
   });
   var dn=T.filter(function(t){return ticks[t.task_id]}).sort(function(a,b){return (+ticks[b.task_id]||0)-(+ticks[a.task_id]||0)});
   var tday=dn.filter(function(t){return ticks[t.task_id]>1&&dayKey(ticks[t.task_id])===today}),earlier=dn.filter(function(t){return tday.indexOf(t)<0});
+  var DW=D.done_week||{},dwi=DW.items||[];
+  if(dwi.length){var dwd={};dwi.forEach(function(i){(dwd[i.date]=dwd[i.date]||[]).push(i)});
+   h+='<div class="card donebox"><details open><summary>'+bloom("#b8e0ff")+'Done this week <span class="pill">'+dwi.length+'</span></summary>'+(DW.week_label?'<p class="note" style="margin-left:0">'+esc(DW.week_label)+'</p>':'')+Object.keys(dwd).sort().map(function(dt){var dd=new Date(dt+"T12:00:00");return '<h4>'+esc(isNaN(dd)?dt:dd.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}))+'</h4><ul class="tasks" style="margin-top:4px">'+dwd[dt].map(function(i){return '<li class="task dwk"><div class="body"><span class="what"><b>'+esc(i.project||"")+'</b>: '+esc(i.text||"")+'</span>'+(i.time?' <span class="chip">'+esc(i.time)+' ET</span>':'')+((i.links||[]).length?'<div class="tlinks">'+tLinks(i.links)+'</div>':'')+'</div></li>'}).join("")+'</ul>'}).join("")+'</details></div>';}
   h+='<div class="card donebox"><details open><summary>'+bloom("#ffd76a")+'Done today <span class="pill">'+tday.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+(tday.length?tday.map(taskHtml).join(""):'<li class="note">Check something off and it will land here with a little sparkle.</li>')+'</ul></details>'+
    (earlier.length?'<details style="margin-top:12px"><summary>'+bloom("#e3d4ff")+'Finished earlier <span class="pill">'+earlier.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+earlier.map(taskHtml).join("")+'</ul></details>':'')+'</div>';
   el.innerHTML=h;growVine(el,"daily",pct);counts.d=total-done;$("#nDaily").textContent=total-done;updateGreet();setHide(hideDone);
@@ -906,7 +904,7 @@ function renderMarketing(M){
    '<p class="lanehint">Tap a name to see only their tasks. Tap it again to see everyone.</p>'+
    vineHtml("mkt")+'<div class="vinelbl">'+done+' of '+total+' tasks done ('+pct+'%)</div>'+
    '<div class="strip"><div><b>'+(total-done)+'</b><span>Open</span></div><div class="wipt"><b>'+all.filter(isWip).length+'</b><span>In progress</span></div><div><b>'+done+'</b><span>Done</span></div><div><b>'+PR.length+'</b><span>Projects</span></div></div>'+
-   '<div class="srcline">Checked: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+(m.next_refresh?' Next refresh: '+esc(m.next_refresh)+'.':'')+'</div>'+
+   '<div class="srcline">Sources: '+esc(m.sources_checked)+(m.updated_at?' Updated '+fmtDate(m.updated_at)+'.':'')+''+'</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button><button type="button" class="clearBtn">Clear my ticks</button></div></div>'+xcheck(M.crosscheck);
   if(lane){h+='<div class="lanebar"><span class="chip">Showing '+esc(lane)+' only</span><button type="button" class="laneAll">Show everyone</button></div>';if(PEO[lane])h+=personCard(lane)}
   var last=null;
@@ -952,7 +950,7 @@ function renderMarketing(M){
   var b=e.target.closest(".wip-btn");if(b){var li=b.closest("li.task"),id=li.getAttribute("data-id");
    if(wip[id]){delete wip[id];store(MWKEY,wip);draw();return}
    wip[id]=Date.now();store(MWKEY,wip);var c=centerOf(b);burst(c[0],c[1],"small");b.setAttribute("aria-pressed","true");li.classList.add("wip","sprouting","shine");drawT=setTimeout(draw,reduced()?0:600);return}
-  if(e.target.classList.contains("hideBtn"))setHide(!hideDone);if(e.target.classList.contains("clearBtn")&&confirm("Clear the meeting task ticks you made? This clears them on all your devices. Tasks marked done by the refresh stay done.")){ticks={};store(MKEY,ticks);draw()}});
+  if(e.target.classList.contains("hideBtn"))setHide(!hideDone);if(e.target.classList.contains("clearBtn")&&confirm("Clear the meeting task ticks you made? This clears them on all your devices. Tasks already marked done stay done.")){ticks={};store(MKEY,ticks);draw()}});
  SYNC_HOOKS.push(function(){ticks=load(MKEY);wip=load(MWKEY);s4t=load(SKEY);draw()});
  draw();
 }
@@ -960,7 +958,7 @@ function renderMarketing(M){
 /* ---------- Talk with Dave ---------- */
 var VKEY="isp-todo-dave-ticks",VWKEY="isp-todo-dave-wip";
 function shroomSvg(cls,title){return '<svg class="'+cls+'" viewBox="0 0 32 32" role="img" aria-label="'+esc(title)+'"><title>'+esc(title)+'</title><path d="M12.5 17h7l1 11a1.5 1.5 0 0 1-1.5 1.6h-6A1.5 1.5 0 0 1 11.5 28z" fill="#fff4e4" stroke="#e8cdb6" stroke-width=".8"/><path class="cap" d="M3 17.5C3 9.5 9 4 16 4s13 5.5 13 13.5c0 1-1 1.5-2 1.5H5c-1 0-2-.5-2-1.5z" fill="#d9c7e6"/><circle cx="10" cy="12" r="2" fill="#fff"/><circle cx="17" cy="8.5" r="1.6" fill="#fff"/><circle cx="22.5" cy="13" r="2.2" fill="#fff"/><circle cx="15" cy="15" r="1.2" fill="#fff"/></svg>'}
-function fireflies(x,y){if(reduced()||calm())return;for(var i=0;i<6;i++){(function(i){setTimeout(function(){var f=document.createElement("i");f.className="ffly";f.style.left=(x+rnd(-14,14))+"px";f.style.top=(y+rnd(-6,6))+"px";f.style.setProperty("--dx",rnd(-70,70)+"px");f.style.animationDuration=rnd(1.8,2.8)+"s";f.addEventListener("animationend",function(){f.remove()});document.body.appendChild(f)},i*110)})(i)}}
+function sparkFlies(x,y){if(reduced()||calm())return;for(var i=0;i<6;i++){(function(i){setTimeout(function(){var f=document.createElement("i");f.className="ffly";f.style.left=(x+rnd(-14,14))+"px";f.style.top=(y+rnd(-6,6))+"px";f.style.setProperty("--dx",rnd(-70,70)+"px");f.style.animationDuration=rnd(1.8,2.8)+"s";f.addEventListener("animationend",function(){f.remove()});document.body.appendChild(f)},i*110)})(i)}}
 function renderDave(V){
  V=V||{meta:{},tasks:[]};var ticks=load(VKEY),wip=load(VWKEY),T=V.tasks||[],el=$("#tab-dave"),drawT=0,lastLit=null;
  var RANK={high:0,medium:1,low:2};
@@ -971,7 +969,7 @@ function renderDave(V){
  function taskHtml(t,inGroup){
   var on=!!ticks[t.task_id],w=isWip(t),pr=t.priority==="high"&&!on;
   var chips='<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.status==="waiting_on_dave"&&!on?'<span class="chip wait">Waiting on Dave</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
-  var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Fireflies":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
+  var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Meeting":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
   return '<li class="task'+(on?' done':'')+(w?' wip':'')+(pr?' prio':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
    '<details'+(pr?' open':'')+'><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
  }
@@ -996,7 +994,7 @@ function renderDave(V){
   });
   var dn=T.filter(function(t){return ticks[t.task_id]}).sort(function(a,b){return (+ticks[b.task_id]||0)-(+ticks[a.task_id]||0)});
   var tday=dn.filter(function(t){return ticks[t.task_id]>1&&dayKey(ticks[t.task_id])===today}),earlier=dn.filter(function(t){return tday.indexOf(t)<0});
-  h+='<div class="card donebox"><details open><summary>'+bloom("#ffd76a")+'Settled today <span class="pill">'+tday.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+(tday.length?tday.map(taskHtml).join(""):'<li class="note">Check one off after you talk and a few fireflies will float up.</li>')+'</ul></details>'+
+  h+='<div class="card donebox"><details open><summary>'+bloom("#ffd76a")+'Settled today <span class="pill">'+tday.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+(tday.length?tday.map(taskHtml).join(""):'<li class="note">Check one off after you talk and a few sparkles will float up.</li>')+'</ul></details>'+
    (earlier.length?'<details style="margin-top:12px"><summary>'+bloom("#e3d4ff")+'Settled earlier <span class="pill">'+earlier.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+earlier.map(taskHtml).join("")+'</ul></details>':'')+'</div>';
   el.innerHTML=h;lastLit=null;counts.v=total-done;$("#nDave").textContent=total-done;updateGreet();setHide(hideDone);
  }
@@ -1005,7 +1003,7 @@ function renderDave(V){
   if(!e.target.checked){delete ticks[id];store(VKEY,ticks);draw();return}
   var allBefore=T.length-T.filter(function(x){return ticks[x.task_id]}).length;
   ticks[id]=Date.now();store(VKEY,ticks);if(wip[id]){delete wip[id];store(VWKEY,wip)}lastLit=id;
-  var c=centerOf(e.target);burst(c[0],c[1],false);fireflies(c[0],c[1]);chime(false);
+  var c=centerOf(e.target);burst(c[0],c[1],false);sparkFlies(c[0],c[1]);chime(false);
   if(reduced()){draw()}else{li.style.maxHeight=li.offsetHeight+"px";li.offsetHeight;li.classList.add("shine","leaving");li.style.maxHeight="0px";drawT=setTimeout(draw,850)}
   if(allBefore===1)setTimeout(function(){celebrate(null,"Everything with Dave is settled. Toadstools all aglow!")},500);
   else if(t&&t.priority==="high")setTimeout(function(){celebrate(null,"The big one with Dave is settled. Beautiful!")},500);
