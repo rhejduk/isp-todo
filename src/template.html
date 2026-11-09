@@ -192,6 +192,7 @@ summary{font-size:.82rem;color:#8a4fc7;cursor:pointer;font-weight:700;width:max-
 .chip.medium{background:#fff1cf;color:#86600a}
 .chip.low{background:#e2f6ec;color:#2f6b52}
 .chip.due{background:#ffe7d6;color:#8a4a22}
+.when{display:block;font-size:.72rem;color:var(--soft);font-weight:600;margin-top:2px}
 .srcs{margin-top:7px;display:flex;flex-direction:column;gap:3px}
 .srcs a,.srcs span{font-size:.8rem;word-break:break-word}
 .srcs q{display:block;color:var(--soft);font-size:.8rem;font-style:italic;margin:1px 0 4px 10px}
@@ -778,6 +779,8 @@ var DKEY="isp-todo-daily-ticks",WKEY="isp-todo-daily-wip";
 function renderDaily(D){
  var ticks=load(DKEY),wip=load(WKEY),T=D.tasks,el=$("#tab-daily"),drawT=0;
  function isWip(t){return !ticks[t.task_id]&&!!wip[t.task_id]}
+ function byAssigned(a,b){var da=a.assigned_date||"",db=b.assigned_date||"";if(db!==da)return db.localeCompare(da);return (a.task_id||"").localeCompare(b.task_id||"")}
+ function fmtAssigned(d){if(!d)return "";var x=new Date(d+"T12:00:00");if(isNaN(x))return "Assigned "+d;return "Assigned "+x.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
  var SEC=[["top_priorities","Top priorities","Urgent, blocking, or deadline driven actions that are yours.","#f7a8c4"],
   ["new_since_last_digest","New since last update","New actions that showed up after the last list.","#9fdcbf"],
   ["follow_ups_and_waiting","Follow-ups and waiting","Follow-ups and next steps still waiting on you.","#cdb8f2"],
@@ -787,7 +790,7 @@ function renderDaily(D){
   var on=!!ticks[t.task_id],w=isWip(t);
   var chips=(t.urgent?'<span class="chip urgent">Urgent</span>':'')+'<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
   var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Meeting":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
-  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+(t.assigned_date?'<span class="when">'+esc(fmtAssigned(t.assigned_date))+'</span>':'')+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
    '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
  }
  function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
@@ -795,6 +798,7 @@ function renderDaily(D){
   clearTimeout(drawT);
   var done=T.filter(function(t){return ticks[t.task_id]}).length,total=T.length,pct=total?Math.round(done/total*100):0;
   var projs={};T.filter(function(t){return t.section==="by_project"&&!ticks[t.task_id]&&!isWip(t)}).forEach(function(t){(projs[t.project]=projs[t.project]||[]).push(t)});
+  Object.keys(projs).forEach(function(n){projs[n].sort(byAssigned)});
   var pn=Object.keys(projs).sort(function(a,b){return a.localeCompare(b)});
   var m=D.meta||{},today=dayKey(Date.now());
   var W=T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)});
@@ -806,7 +810,7 @@ function renderDaily(D){
    '<div class="card wipbox" id="wipGroup"><details'+(pref("wipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
    (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on any task and it will wait for you up here while you work on it.</p>')+'</details></div>';
   SEC.forEach(function(s){
-   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(function(a,b){return (b.urgent?1:0)-(a.urgent?1:0)}),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
+   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(byAssigned),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
    h+='<div class="sechead">'+bloom(s[3])+'<h2>'+s[1]+'</h2><span class="pill">'+ts.length+' open</span>'+(wn?'<span class="pill wipp">'+wn+' in progress</span>':'')+'</div><p class="note">'+s[2]+'</p>';
    if(s[0]==="by_project"){h+=pn.length?'<div class="pgrid">'+pn.map(function(n){return '<div class="card pcard"><h3>'+esc(n)+' <span class="pill">'+projs[n].length+'</span></h3><ul class="tasks">'+projs[n].map(taskHtml).join("")+'</ul></div>'}).join("")+'</div>':'<div class="card"><p class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</p></div>'}
    else h+='<div class="card"><ul class="tasks">'+(ts.length?ts.map(taskHtml).join(""):'<li class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</li>')+'</ul></div>';
