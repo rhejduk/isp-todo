@@ -172,6 +172,7 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   if (!tpl.includes("renderBrief(data.brief)") || !tpl.includes('"isp-todo-brief-ticks"')) throw new Error("template is missing the Daily Brief tab or its sync key (see DAILY_BRIEF.md)");
   if (!tpl.includes("renderShipping(data.shipping)") || !tpl.includes('"isp-todo-ship-ticks"')) throw new Error("template is missing the Shipping tab or its sync key (see SHIPPING_TAB.md)");
   if (!tpl.includes("Sync.start(data.sync)")) throw new Error("template is missing the checkmark sync code (see SYNC.md)");
+  if (!tpl.includes('"isp-todo-priority"') || !tpl.includes('"isp-todo-notes"') || !tpl.includes("function metaHtml(")) throw new Error("template is missing priority/notes sync (see SYNC.md)");
   fs.writeFileSync(OUT, html);
   const mDone = marketing.projects.flatMap((p) => p.tasks).filter((t) => t.d).length;
   console.log(`Built index.html: daily ${dIds.length} tasks, marketing ${mIds.length} tasks (${mDone} done), stage4 ${sIds.length} deliverables (${marketing.projects.filter((p) => (p.deliverables || []).length).length} brands), dave ${vIds.length} tasks, projects ${(projects.cards || []).length} meetings for ${projects.date || "n/a"}, brief ${bIds.length} updates (${brief.entries.reduce((n, u) => n + u.subs.filter((x) => x.src !== "brief").length, 0)} linked sub items, ${briefSubIds.length} brief only; days ${brief.days.map((d) => d.date + ":" + d.meetings.length).join(" ") || "none"}), shipping ${shipCardIds.length} cards (${shipIds.length} ship only to dos), ${html.length} bytes`);

@@ -445,6 +445,36 @@ li.task.dlv .src{display:block;font-size:.76rem;color:#8b7a9c}
 .stag{display:inline-block;font-size:.7rem;font-weight:800;border-radius:999px;padding:0 7px;margin-right:5px;background:#f1edf5;color:#7c6c8c}
 .st-done{background:var(--mint2);color:#2f6b52}.st-inprogress{background:#ece3ff;color:#5e4778}.st-notstarted{background:#fff;color:#7c6c8c;border:1px solid var(--line)}
 .st-blocked{background:#ffe0ea;color:#a4305d}.st-waitingon{background:#fff1cf;color:#86600a}.st-unknown{background:#f1edf5;color:#8b7a9c}.st-unticked{background:#ffe7d6;color:#8a4a22}
+
+/* User-set priority highlight and per-task notes (synced, see SYNC.md) */
+li.task.uprio-urgent,li.bsub.uprio-urgent,li.sh-td.uprio-urgent,li.uprio-urgent{border-left:4px solid #d1001f;background:rgba(209,0,31,.06);border-radius:10px;padding-left:8px}
+li.task.uprio-urgent .what,li.bsub.uprio-urgent .st,li.sh-td.uprio-urgent .t,li.uprio-urgent .t{color:#c4001d;font-weight:700}
+li.task.uprio-high,li.bsub.uprio-high,li.sh-td.uprio-high,li.uprio-high{border-left:4px solid #e07a2f;background:rgba(224,122,47,.09);border-radius:10px;padding-left:8px}
+li.task.uprio-medium,li.bsub.uprio-medium,li.sh-td.uprio-medium,li.uprio-medium{border-left:4px solid #e9b949;background:rgba(233,185,73,.14);border-radius:10px;padding-left:8px}
+li.task.uprio-low,li.bsub.uprio-low,li.sh-td.uprio-low,li.uprio-low{border-left:4px solid #b8a9c9;background:rgba(126,96,160,.07);border-radius:10px;padding-left:8px}
+li.task.urgent.uprio-high,li.bsub.urgent.uprio-high{border-left-color:#e07a2f;background:rgba(224,122,47,.09)}
+li.task.urgent.uprio-medium,li.bsub.urgent.uprio-medium{border-left-color:#e9b949;background:rgba(233,185,73,.14)}
+li.task.urgent.uprio-low,li.bsub.urgent.uprio-low{border-left-color:#b8a9c9;background:rgba(126,96,160,.07)}
+li.task.urgent.uprio-high .what,li.task.urgent.uprio-medium .what,li.task.urgent.uprio-low .what,
+li.bsub.urgent.uprio-high .st,li.bsub.urgent.uprio-medium .st,li.bsub.urgent.uprio-low .st{color:var(--ink);font-weight:700}
+.tmeta{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 10px;margin-top:7px}
+.prio-wrap{display:inline-flex;align-items:center;gap:6px;flex:none}
+.prio-lab{font-size:.72rem;font-weight:800;color:var(--plum2);letter-spacing:.02em}
+.prio-sel{font:800 .75rem var(--f-body);border-radius:999px;border:1.5px solid var(--line);padding:3px 10px;background:#fff;color:var(--plum2);cursor:pointer}
+.prio-sel.prio-Urgent{background:#d1001f;color:#fff;border-color:#d1001f}
+.prio-sel.prio-High{background:#ffe0c2;color:#9a3f00;border-color:#e07a2f}
+.prio-sel.prio-Medium{background:#fff1cf;color:#86600a;border-color:#e9b949}
+.prio-sel.prio-Low{background:#efeaf4;color:#6e5a84;border-color:#b8a9c9}
+details.tnotes{margin:0;flex:1 1 200px;min-width:0}
+details.tnotes>summary{font-size:.78rem;color:#8a4fc7;cursor:pointer;font-weight:800;width:max-content;display:flex;align-items:center;gap:6px}
+.n-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#e0789f;box-shadow:0 0 0 3px rgba(224,120,159,.2)}
+.n-area{display:block;width:100%;margin-top:6px;min-height:68px;resize:vertical;border:1.5px solid rgba(160,120,210,.35);border-radius:14px;padding:8px 10px;font:inherit;font-size:.88rem;background:#fff;color:var(--ink);line-height:1.45}
+.n-area:focus{outline:none;border-color:#b78be6;box-shadow:0 0 0 4px rgba(205,184,242,.45)}
+.n-saved{display:inline-block;margin-top:4px;font-size:.72rem;font-weight:800;color:#2f6b52}
+.n-saved[hidden]{display:none!important}
+li.bsub .tmeta,li.sh-td .tmeta{flex:1 1 100%;margin-left:29px;margin-top:4px}
+.pjsec li .tmeta{margin-top:6px}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 </head>
 <body>
@@ -517,12 +547,12 @@ function rnd(a,b){return a+Math.random()*(b-a)}
 function pick(a){return a[Math.floor(Math.random()*a.length)]}
 var SVGNS="http://www.w3.org/2000/svg";
 
-/* ---------- cross device sync of checkmarks (see SYNC.md) ---------- */
+/* ---------- cross device sync of checkmarks, priorities and notes (see SYNC.md) ---------- */
 /* localStorage stays the offline cache. Every change to a synced key is stamped per item in SMETA.
    Remote doc (AES-GCM encrypted with a key derived from the page password): {v:1,s:{lsKey:{id:[value|null,ts]}}}.
    Merge = last write wins per item by ts; on a tie a checked value beats an unchecked one beats a deletion,
    so pre-sync ticks (ts 0) are a union and a stale device can never wipe them. null = unticked (tombstone). */
-var SYNC_KEYS=["isp-todo-daily-ticks","isp-todo-daily-wip","isp-todo-mkt-ticks","isp-todo-mkt-wip","isp-todo-s4-ticks","isp-todo-dave-ticks","isp-todo-dave-wip","isp-todo-brief-ticks","isp-todo-ship-ticks"];
+var SYNC_KEYS=["isp-todo-daily-ticks","isp-todo-daily-wip","isp-todo-mkt-ticks","isp-todo-mkt-wip","isp-todo-s4-ticks","isp-todo-dave-ticks","isp-todo-dave-wip","isp-todo-brief-ticks","isp-todo-ship-ticks","isp-todo-priority","isp-todo-notes"];
 var SMETA="isp-todo-sync-meta",SYNC_HOOKS=[],TOMB_DAYS=180;
 var Sync=(function(){
  var cfg=null,ck=null,busy=false,again=false,pushT=0,lastOk=0,state="off",lastErr="";
@@ -568,10 +598,10 @@ var Sync=(function(){
  }
  function schedule(ms){clearTimeout(pushT);pushT=setTimeout(run,ms)}
  function setStatus(s){state=s;var el=document.getElementById("syncState");if(!el)return;
-  el.textContent=s==="ok"?"Checkmarks sync across your devices. Last synced "+new Date(lastOk).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})+".":
-   s==="syncing"?(lastOk?el.textContent:"Syncing checkmarks..."):
-   s==="offline"?"Offline right now. Checkmarks are saved on this device and will sync when you are back online.":
-   s==="error"?"Could not reach the sync service. Checkmarks are saved on this device and will sync on the next try.":"Checkmarks are saved on this device.";
+  el.textContent=s==="ok"?"Checkmarks, priorities and notes sync across your devices. Last synced "+new Date(lastOk).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})+".":
+   s==="syncing"?(lastOk?el.textContent:"Syncing..."):
+   s==="offline"?"Offline right now. Changes are saved on this device and will sync when you are back online.":
+   s==="error"?"Could not reach the sync service. Changes are saved on this device and will sync on the next try.":"Checkmarks, priorities and notes are saved on this device.";
   el.setAttribute("data-state",s)}
  function start(c){
   if(!c||!c.u||!c.id||!c.k||!window.fetch||!window.crypto||!crypto.subtle){setStatus("off");return}
@@ -774,6 +804,102 @@ function bloom(c){return '<span class="blossom" style="--pc:'+c+'" aria-hidden="
 var counts={d:0,m:0,v:0};
 function updateGreet(){$("#greet").textContent=hello()+"! You have "+counts.d+" open on your daily list, "+counts.m+" in marketing"+(counts.v?", and "+counts.v+" to talk over with Dave":"")+". One sparkle at a time."}
 
+
+/* ---------- priority + notes (synced under isp-todo-priority / isp-todo-notes) ---------- */
+var PKEY="isp-todo-priority",NKEY="isp-todo-notes",PRIOS=["Urgent","High","Medium","Low"];
+function prioVal(id){var v=load(PKEY)[id];return PRIOS.indexOf(v)>=0?v:""}
+function notesVal(id){var v=load(NKEY)[id];if(v&&typeof v==="object")return String(v.text||"");return typeof v==="string"?v:""}
+function uprioCls(id){var p=prioVal(id);return p?" uprio-"+p.toLowerCase():""}
+function metaHtml(id){
+  if(!id)return "";
+  var p=prioVal(id),n=notesVal(id),has=!!n;
+  return '<div class="tmeta" data-meta="'+esc(id)+'">'+
+   '<label class="prio-wrap"><span class="prio-lab">Priority</span><select class="prio-sel prio-'+(p||"none")+'" aria-label="Priority" data-prio="'+esc(id)+'">'+
+   '<option value="">None</option>'+PRIOS.map(function(x){return '<option value="'+x+'"'+(p===x?' selected':'')+'>'+x+'</option>'}).join("")+
+   '</select></label>'+
+   '<details class="tnotes"'+(has?' open':'')+'><summary>Notes'+(has?' <span class="n-dot" title="Has notes"></span>':'')+'</summary>'+
+   '<textarea class="n-area" data-notes="'+esc(id)+'" rows="3" placeholder="Add a note">'+esc(n)+'</textarea>'+
+   '<span class="n-saved" hidden>Saved</span></details></div>';
+}
+var META_SNAP=null,noteTimers={},savedTimers={};
+function snapMeta(root){
+  var s={};
+  $$("[data-meta]",root||document).forEach(function(box){
+    var id=box.getAttribute("data-meta"),ta=box.querySelector(".n-area"),d=box.querySelector("details.tnotes"),sv=box.querySelector(".n-saved");
+    s[id]={open:!!(d&&d.open),val:ta?ta.value:null,start:ta?ta.selectionStart:0,end:ta?ta.selectionEnd:0,focus:!!(ta&&document.activeElement===ta),saved:!!(sv&&!sv.hidden)};
+  });
+  META_SNAP=s;
+}
+function restoreMeta(root){
+  var s=META_SNAP;if(!s)return;
+  $$("[data-meta]",root||document).forEach(function(box){
+    var id=box.getAttribute("data-meta"),st=s[id];if(!st)return;
+    var ta=box.querySelector(".n-area"),d=box.querySelector("details.tnotes"),sv=box.querySelector(".n-saved");
+    /* Only keep a typed value when the box was mid-edit. Otherwise keep the freshly rendered store value, so a sync from another device is not overwritten by an empty snapshot. */
+    if(ta&&st.focus&&st.val!=null){ta.value=st.val;try{ta.setSelectionRange(st.start,st.end)}catch(e){}ta.focus()}
+    if(d&&(st.open||st.focus))d.open=true;
+    if(sv&&st.saved&&st.focus)sv.hidden=false;
+  });
+}
+function paint(el,html){snapMeta(el);el.innerHTML=html;restoreMeta(el)}
+function markPrioHost(id,val){
+  $$("[data-meta=\""+CSS.escape(id)+"\"], [data-id=\""+CSS.escape(id)+"\"], [data-s4=\""+CSS.escape(id)+"\"], [data-sub=\""+CSS.escape(id)+"\"], [data-td=\""+CSS.escape(id)+"\"]").forEach(function(el){
+    var host=el.tagName==="LI"?el:el.closest("li");
+    if(!host)return;
+    host.classList.remove("uprio-urgent","uprio-high","uprio-medium","uprio-low");
+    if(val)host.classList.add("uprio-"+val.toLowerCase());
+  });
+  $$("select.prio-sel[data-prio=\""+CSS.escape(id)+"\"]").forEach(function(s){s.className="prio-sel prio-"+(val||"none");if(s.value!==(val||""))s.value=val||""});
+}
+function setPrio(id,val){
+  if(!id)return;
+  val=PRIOS.indexOf(val)>=0?val:"";
+  var o=load(PKEY);
+  if(!val){if(!(id in o))return;delete o[id]}else{if(o[id]===val)return;o[id]=val}
+  store(PKEY,o);markPrioHost(id,val);
+}
+function showSaved(id){
+  $$("[data-meta=\""+CSS.escape(id)+"\"] .n-saved").forEach(function(sv){
+    sv.hidden=false;clearTimeout(savedTimers[id]);savedTimers[id]=setTimeout(function(){sv.hidden=true},1600);
+  });
+  $$("details.tnotes",document).forEach(function(d){
+    var box=d.closest("[data-meta]");if(!box||box.getAttribute("data-meta")!==id)return;
+    var sm=d.querySelector("summary"),ta=d.querySelector(".n-area");
+    var has=!!(ta&&ta.value)||!!notesVal(id);
+    var dot=sm&&sm.querySelector(".n-dot");
+    if(has&&sm&&!dot){var i=document.createElement("span");i.className="n-dot";i.title="Has notes";sm.appendChild(i)}
+    if(!has&&dot)dot.remove();
+  });
+}
+function setNotes(id,text){
+  if(!id)return;
+  var o=load(NKEY),cur=notesVal(id),next=text||"";
+  if(next===cur){showSaved(id);return}
+  if(!next){delete o[id]}else{o[id]={text:next,at:Date.now()}}
+  store(NKEY,o);showSaved(id);
+}
+function queueNotes(id,text,now){
+  clearTimeout(noteTimers[id]);
+  if(now){setNotes(id,text);return}
+  noteTimers[id]=setTimeout(function(){setNotes(id,text)},400);
+}
+document.addEventListener("change",function(e){
+  var s=e.target&&e.target.classList&&e.target.classList.contains("prio-sel")?e.target:null;
+  if(!s)return;
+  e.stopPropagation();
+  setPrio(s.getAttribute("data-prio"),s.value);
+},true);
+document.addEventListener("input",function(e){
+  var ta=e.target&&e.target.classList&&e.target.classList.contains("n-area")?e.target:null;
+  if(!ta)return;
+  queueNotes(ta.getAttribute("data-notes"),ta.value,false);
+},true);
+document.addEventListener("blur",function(e){
+  var ta=e.target&&e.target.classList&&e.target.classList.contains("n-area")?e.target:null;
+  if(!ta)return;
+  queueNotes(ta.getAttribute("data-notes"),ta.value,true);
+},true);
+
 /* ---------- Daily ---------- */
 var DKEY="isp-todo-daily-ticks",WKEY="isp-todo-daily-wip";
 function renderDaily(D){
@@ -790,8 +916,8 @@ function renderDaily(D){
   var on=!!ticks[t.task_id],w=isWip(t);
   var chips=(t.urgent?'<span class="chip urgent">Urgent</span>':'')+'<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
   var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Meeting":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
-  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+(t.assigned_date?'<span class="when">'+esc(fmtAssigned(t.assigned_date))+'</span>':'')+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
-   '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(t.urgent?' urgent':'')+uprioCls(t.task_id)+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+(t.section==="by_project"?", "+esc(t.project):"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+(t.assigned_date?'<span class="when">'+esc(fmtAssigned(t.assigned_date))+'</span>':'')+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
+   '<details><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details>'+metaHtml(t.task_id)+'</div>'+(on?'':wipBtn(w))+'</li>';
  }
  function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
  function draw(){
@@ -822,9 +948,10 @@ function renderDaily(D){
    h+='<div class="card donebox"><details open><summary>'+bloom("#b8e0ff")+'Done this week <span class="pill">'+dwi.length+'</span></summary>'+(DW.week_label?'<p class="note" style="margin-left:0">'+esc(DW.week_label)+'</p>':'')+Object.keys(dwd).sort().map(function(dt){var dd=new Date(dt+"T12:00:00");return '<h4>'+esc(isNaN(dd)?dt:dd.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}))+'</h4><ul class="tasks" style="margin-top:4px">'+dwd[dt].map(function(i){return '<li class="task dwk"><div class="body"><span class="what"><b>'+esc(i.project||"")+'</b>: '+esc(i.text||"")+'</span>'+(i.time?' <span class="chip">'+esc(i.time)+' ET</span>':'')+((i.links||[]).length?'<div class="tlinks">'+tLinks(i.links)+'</div>':'')+'</div></li>'}).join("")+'</ul>'}).join("")+'</details></div>';}
   h+='<div class="card donebox"><details open><summary>'+bloom("#ffd76a")+'Done today <span class="pill">'+tday.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+(tday.length?tday.map(taskHtml).join(""):'<li class="note">Check something off and it will land here with a little sparkle.</li>')+'</ul></details>'+
    (earlier.length?'<details style="margin-top:12px"><summary>'+bloom("#e3d4ff")+'Finished earlier <span class="pill">'+earlier.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+earlier.map(taskHtml).join("")+'</ul></details>':'')+'</div>';
-  el.innerHTML=h;growVine(el,"daily",pct);counts.d=total-done;$("#nDaily").textContent=total-done;updateGreet();setHide(hideDone);
+  paint(el,h);growVine(el,"daily",pct);counts.d=total-done;$("#nDaily").textContent=total-done;updateGreet();setHide(hideDone);
  }
  el.addEventListener("change",function(e){
+  if(e.target.closest(".tmeta"))return;
   var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id"),t=T.filter(function(x){return x.task_id===id})[0];
   if(!e.target.checked){delete ticks[id];store(DKEY,ticks);draw();return}
   var secOpenBefore=openIn(t.section),allBefore=T.length-T.filter(function(x){return ticks[x.task_id]}).length;
@@ -857,7 +984,7 @@ function renderMarketing(M){
  function isDone(t){return ticks.hasOwnProperty(t.id)?ticks[t.id]===1:!!t.d}
  function ocls(o){return "o-"+String(o||"PMs").replace(/[^A-Za-z]/g,"")}
  function isWip(t){return !isDone(t)&&!!wip[t.id]}
- function taskHtml(t){var on=isDone(t),w=isWip(t);return '<li class="task'+(on?' done':'')+(w?' wip':'')+'" data-id="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span></div>'+(on?'':wipBtn(w))+'</li>'}
+ function taskHtml(t){var on=isDone(t),w=isWip(t);return '<li class="task'+(on?' done':'')+(w?' wip':'')+uprioCls(t.id)+'" data-id="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span>'+metaHtml(t.id)+'</div>'+(on?'':wipBtn(w))+'</li>'}
  function allTasks(){var a=[];PR.forEach(function(p){a=a.concat(p.tasks)});return a}
  /* Stage 4 checklist deliverables: own ticks, own bar. Meeting tasks above are not counted. */
  var S4=(M.meta||{}).stage4||{},SECT=S4.sections||[],s4t=load(SKEY),s4open=pref("s4open")||{};
@@ -866,7 +993,7 @@ function renderMarketing(M){
  function stCls(st){return "st-"+String(st).replace(/[^a-z]/g,"")}
  function srcTxt(d){var dt=d.sd?new Date(d.sd+"T12:00:00Z").toLocaleDateString("en-US",{month:"short",day:"numeric"}):"";return (d.note||"")+(d.src?" ("+d.src+(dt?", "+dt:"")+")":"")}
  function s4tick(d){return s4t.hasOwnProperty(d.id)?(s4t[d.id]===1?" · You ticked this":" · You unticked this"):""}
- function dHtml(d){var on=dDone(d),st=dStat(d),ttl=srcTxt(d);return '<li class="task dlv'+(on?' done':'')+'" data-s4="'+esc(d.id)+'">'+cbx(on,on?"Mark deliverable not done":"Mark deliverable done")+'<div class="body"><span class="what">'+esc(d.t)+'</span><span class="who"><span class="stag '+stCls(st)+'">'+esc(st==="unticked"?"unticked by you":st)+'</span>Owner: '+esc(d.o)+'</span>'+(ttl?'<span class="src" title="'+esc(ttl)+'">'+esc(ttl)+esc(s4tick(d))+'</span>':'')+'</div></li>'}
+ function dHtml(d){var on=dDone(d),st=dStat(d),ttl=srcTxt(d);return '<li class="task dlv'+(on?' done':'')+uprioCls(d.id)+'" data-s4="'+esc(d.id)+'">'+cbx(on,on?"Mark deliverable not done":"Mark deliverable done")+'<div class="body"><span class="what">'+esc(d.t)+'</span><span class="who"><span class="stag '+stCls(st)+'">'+esc(st==="unticked"?"unticked by you":st)+'</span>Owner: '+esc(d.o)+'</span>'+(ttl?'<span class="src" title="'+esc(ttl)+'">'+esc(ttl)+esc(s4tick(d))+'</span>':'')+metaHtml(d.id)+'</div></li>'}
  function s4bar(p){var D=p.deliverables,n=S4.in_scope||D.length,dn=D.filter(dDone).length,pr=D.filter(function(d){return !dDone(d)&&dStat(d)==="in progress"}).length,un=D.filter(function(d){return !dDone(d)&&dStat(d)==="unknown"}).length,g=p.stage4||{};
   var pd=n?dn/n*100:0,pp=n?pr/n*100:0;
   var ph=SECT.map(function(sec,i){var xs=D.filter(function(d){return d.sec===sec}),xd=xs.filter(dDone).length;return '<li class="'+(String(i+1)===String(g.phase)?'cur ':'')+(xs.length&&xd===xs.length?'full':'')+'" title="Phase '+(i+1)+' '+esc(sec)+': '+xd+' of '+xs.length+' done">'+(i+1)+' '+esc(sec.split(" ")[0])+'</li>'}).join("");
@@ -894,7 +1021,7 @@ function renderMarketing(M){
  function pDone(x){return ticks.hasOwnProperty(x.id)?ticks[x.id]===1:x.d}
  function pItemHtml(x){var on=pDone(x),w=!on&&!!wip[x.id],st=on?"done":(ticks.hasOwnProperty(x.id)&&x.d?"unticked":(x.st||"open"));
   var lbl=st==="waiting on"?"waiting on "+(x.stw||""):st==="unticked"?"unticked by you":st,sd=fmtSd(x.sd);
-  return '<li class="task'+(on?' done':'')+(w?' wip':'')+'" data-id="'+esc(x.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(x.t)+'</span><span class="who"><span class="stag '+stCls(st)+'">'+esc(lbl)+'</span>'+(x.due?'<span class="chip due">Due: '+esc(x.due)+'</span> ':'')+(x.dash?'<span class="chip dash">Dash</span>':'')+'</span><span class="pvsrc">'+esc(x.src||"")+(sd?", "+esc(sd):"")+'</span></div>'+(on?'':wipBtn(w))+'</li>'}
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+uprioCls(x.id)+'" data-id="'+esc(x.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(x.t)+'</span><span class="who"><span class="stag '+stCls(st)+'">'+esc(lbl)+'</span>'+(x.due?'<span class="chip due">Due: '+esc(x.due)+'</span> ':'')+(x.dash?'<span class="chip dash">Dash</span>':'')+'</span><span class="pvsrc">'+esc(x.src||"")+(sd?", "+esc(sd):"")+'</span>'+metaHtml(x.id)+'</div>'+(on?'':wipBtn(w))+'</li>'}
  function personCard(name){var V=PEO[name]||{},xs=personItems(name),brands=[];xs.forEach(function(x){if(brands.indexOf(x.brand)<0)brands.push(x.brand)});
   var dn=xs.filter(pDone).length,dsh=xs.filter(function(x){return x.dash}).length;
   return '<div class="card pv" data-pv="'+esc(name)+'"><h3>'+esc(V.title||name+": all tasks")+' <span class="pill">'+dn+' of '+xs.length+' done</span>'+(dsh?'<span class="pill">'+dsh+' from Dash</span>':'')+'</h3>'+
@@ -927,9 +1054,10 @@ function renderMarketing(M){
     LANES.map(function(l){var ts=p.tasks.filter(function(t){return (t.o||"PMs")===l[0]});if(!ts.length||(lane&&lane!==l[0]))return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
     (rest.length&&!lane?'<div class="og"><h4>Others</h4><ul class="tasks">'+rest.map(taskHtml).join("")+'</ul></div>':"")+'</div>';
   });
-  el.innerHTML=h;growVine(el,"mkt",pct);counts.m=total-done;$("#nMkt").textContent=total-done;updateGreet();setHide(hideDone);
+  paint(el,h);growVine(el,"mkt",pct);counts.m=total-done;$("#nMkt").textContent=total-done;updateGreet();setHide(hideDone);
  }
  el.addEventListener("change",function(e){
+  if(e.target.closest(".tmeta"))return;
   var dl=e.target.closest("li.dlv");
   if(dl){var did=dl.getAttribute("data-s4"),pc=dl.closest(".pcard"),pp=PR[+pc.getAttribute("data-p")],dd=pp.deliverables.filter(function(x){return x.id===did})[0];if(!dd)return;
    s4t[did]=e.target.checked?1:0;store(SKEY,s4t);
@@ -974,8 +1102,8 @@ function renderDave(V){
   var on=!!ticks[t.task_id],w=isWip(t),pr=t.priority==="high"&&!on;
   var chips='<span class="chip proj">'+esc(t.project)+'</span>'+(t.priority?'<span class="chip '+esc(t.priority)+'">'+esc(t.priority)+' priority</span>':'')+(t.status==="waiting_on_dave"&&!on?'<span class="chip wait">Waiting on Dave</span>':'')+(t.due_date?'<span class="chip due">Due '+esc(t.due_date)+'</span>':'')+((t.collaborators||[]).length?'<span class="chip">With '+esc(t.collaborators.join(", "))+'</span>':'');
   var srcs=(t.sources||[]).map(function(s){var st=String(s.source_type||"");var kind=/^(gmail|email)/.test(st)?"Email":/^fireflies/.test(st)?"Meeting":st==="meeting"?"Meeting":st==="slack"?"Slack":/^user/.test(st)?"You said":esc(st);var lbl=kind+": "+esc(s.title)+(s.date?", "+esc(s.date):"");var u=safeUrl(s.deep_url||s.url);return (u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+lbl+'</a>':'<span>'+lbl+'</span>')+(s.evidence_quote?'<q>'+esc(s.evidence_quote)+'</q>':'')}).join("");
-  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(pr?' prio':'')+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
-   '<details'+(pr?' open':'')+'><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details></div>'+(on?'':wipBtn(w))+'</li>';
+  return '<li class="task'+(on?' done':'')+(w?' wip':'')+(pr?' prio':'')+uprioCls(t.task_id)+'" data-id="'+esc(t.task_id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body">'+(inGroup===true?'<span class="secnm">'+esc(NAMES[t.section]||"")+'</span>':'')+'<span class="what">'+esc(t.action)+'</span>'+((t.links||[]).length?'<div class="tlinks">'+tLinks(t.links)+'</div>':'')+
+   '<details'+(pr?' open':'')+'><summary>Details</summary>'+(t.context?'<div class="ctx">'+esc(t.context)+'</div>':'')+'<div class="chips">'+chips+'</div>'+(srcs?'<div class="srcs">'+srcs+'</div>':'')+'</details>'+metaHtml(t.task_id)+'</div>'+(on?'':wipBtn(w))+'</li>';
  }
  function openIn(s){return T.filter(function(t){return t.section===s&&!ticks[t.task_id]}).length}
  function draw(){
@@ -1000,9 +1128,10 @@ function renderDave(V){
   var tday=dn.filter(function(t){return ticks[t.task_id]>1&&dayKey(ticks[t.task_id])===today}),earlier=dn.filter(function(t){return tday.indexOf(t)<0});
   h+='<div class="card donebox"><details open><summary>'+bloom("#ffd76a")+'Settled today <span class="pill">'+tday.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+(tday.length?tday.map(taskHtml).join(""):'<li class="note">Check one off after you talk and a few sparkles will float up.</li>')+'</ul></details>'+
    (earlier.length?'<details style="margin-top:12px"><summary>'+bloom("#e3d4ff")+'Settled earlier <span class="pill">'+earlier.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+earlier.map(taskHtml).join("")+'</ul></details>':'')+'</div>';
-  el.innerHTML=h;lastLit=null;counts.v=total-done;$("#nDave").textContent=total-done;updateGreet();setHide(hideDone);
+  paint(el,h);lastLit=null;counts.v=total-done;$("#nDave").textContent=total-done;updateGreet();setHide(hideDone);
  }
  el.addEventListener("change",function(e){
+  if(e.target.closest(".tmeta"))return;
   var li=e.target.closest("li.task");if(!li)return;var id=li.getAttribute("data-id"),t=T.filter(function(x){return x.task_id===id})[0];
   if(!e.target.checked){delete ticks[id];store(VKEY,ticks);draw();return}
   var allBefore=T.length-T.filter(function(x){return ticks[x.task_id]}).length;
@@ -1043,16 +1172,16 @@ function renderBrief(B){
  function openSubs(u){if(entryDone(u))return 0;var S=subs(u);return S.length?S.filter(function(s){return !subDone(s)}).length:1}
  function when(iso){var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})+" ET"}
  function link(u,t){var x=safeUrl(u);return x?' <a class="go" href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(t||"open")+'</a>':''}
- function subHtml(s,extra){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+(s.urgent?' urgent':'')+'" data-sub="'+esc(s.id)+'" data-src="'+esc(s.src)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+(s.urgent?'<span class="chip urgent">Urgent</span> ':'')+esc(s.text)+tLinks(s.links)+(extra||'')+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span></li>'}
+ function subHtml(s,extra){var on=subDone(s);return '<li class="bsub'+(on?' done':'')+(s.urgent?' urgent':'')+uprioCls(s.id)+'" data-sub="'+esc(s.id)+'" data-src="'+esc(s.src)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<span class="st">'+(s.urgent?'<span class="chip urgent">Urgent</span> ':'')+esc(s.text)+tLinks(s.links)+(extra||'')+'</span><span class="chip src">'+esc(SRCN[s.src]||s.src)+'</span>'+metaHtml(s.id)+'</li>'}
  function itemHtml(u){
   var own=!!bt[u.id],on=entryDone(u),S=subs(u),sd=S.filter(subDone).length;
   var srcs=(u.sources||[]).map(function(s){var x=safeUrl(s.url);return x?'<a href="'+esc(x)+'" target="_blank" rel="noopener">'+esc(s.label||x)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("");
-  return '<li class="task brief'+(on?' done':'')+'" data-id="'+esc(u.id)+'">'+cbx(own||on,on?"Mark not done":"Mark done")+'<div class="body"><span class="when">'+when(u.at)+(u.kind?' · '+esc(u.kind):'')+'</span><span class="what">'+esc(u.headline)+'</span>'+
+  return '<li class="task brief'+(on?' done':'')+uprioCls(u.id)+'" data-id="'+esc(u.id)+'">'+cbx(own||on,on?"Mark not done":"Mark done")+'<div class="body"><span class="when">'+when(u.at)+(u.kind?' · '+esc(u.kind):'')+'</span><span class="what">'+esc(u.headline)+'</span>'+
    ((u.bullets||[]).length?'<ul class="bul">'+u.bullets.map(function(b){return '<li>'+esc(b)+'</li>'}).join("")+'</ul>':'')+
    (u.next_step?'<div class="next"><b>Next step:</b> '+esc(u.next_step)+'</div>':'')+
    (S.length?'<div class="bsubs"><div class="bsubh">To check off <span>'+sd+' of '+S.length+' done</span></div><ul>'+S.map(function(s){return subHtml(s)}).join("")+'</ul></div>':'')+
    '<div class="chips"><span class="chip proj">'+esc(u.project||"")+'</span>'+(on?'<span class="chip okc">Done</span>':'')+'</div>'+
-   (srcs?'<div class="srcs">'+srcs+'</div>':'')+'</div></li>';
+   (srcs?'<div class="srcs">'+srcs+'</div>':'')+metaHtml(u.id)+'</div></li>';
  }
  function uniq(list){var s={},o=[];list.forEach(function(x){var k=x.src+":"+x.id;if(!s[k]){s[k]=1;o.push(x)}});return o}
  function mtgItems(m){return {mine:m.todos||[],owed:(m.owes||[]).reduce(function(a,o){return a.concat(o.items)},[])}}
@@ -1114,10 +1243,11 @@ function renderBrief(B){
   if(!E.length)h+='<p class="note">Nothing outside my meetings yet today. Supplier replies, quotes and other news land here.</p>';
   groups.forEach(function(g){h+='<h4 class="br-oh">'+esc(g.k)+'</h4><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul>'});
   h+='</div></details>';
-  el.innerHTML=h;$("#nBrief").textContent=(tMineOpen+openS)||"";setHide(hideDone);
+  paint(el,h);$("#nBrief").textContent=(tMineOpen+openS)||"";setHide(hideDone);
  }
  function others(){SYNC_HOOKS.forEach(function(f){if(f!==hook)try{f()}catch(e){}})}
  el.addEventListener("change",function(e){
+  if(e.target.closest(".tmeta"))return;
   var c,on=e.target.checked,sl=e.target.closest("li.bsub");
   if(sl){var id=sl.getAttribute("data-sub"),src=sl.getAttribute("data-src");reload();
    if(src==="daily"){if(on){dt[id]=Date.now();store(DKEY,dt);var w=load(WKEY);if(w[id]){delete w[id];store(WKEY,w)}}else{delete dt[id];store(DKEY,dt)}}
@@ -1153,7 +1283,7 @@ function renderShipping(S){
  function find(id){for(var i=0;i<C.length;i++){var T=C[i].todos||[];for(var j=0;j<T.length;j++)if(T[j].id===id)return T[j]}return null}
  var today=etDate();
  function dueChip(d){if(!d)return "";var late=d<today;var x=new Date(d+"T12:00:00");var lab=isNaN(x)?d:x.toLocaleDateString("en-US",{month:"short",day:"numeric"});return '<span class="chip '+(late?'late':'due')+'">'+(late?'Overdue, was due ':'Due ')+esc(lab)+'</span>'}
- function tdHtml(t){var on=isDone(t);return '<li class="sh-td'+(on?' done':'')+'" data-td="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="st"><span class="t">'+esc(t.text)+'</span><div class="meta">'+dueChip(on?"":t.due)+(t.flag?'<span class="chip flag">'+esc(t.flag)+'</span>':'')+'<span class="chip src">'+esc(SRCN[t.src]||t.src)+'</span>'+(on?'<span class="chip okc">Done</span>':'')+'</div></div></li>'}
+ function tdHtml(t){var on=isDone(t);return '<li class="sh-td'+(on?' done':'')+uprioCls(t.id)+'" data-td="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="st"><span class="t">'+esc(t.text)+'</span><div class="meta">'+dueChip(on?"":t.due)+(t.flag?'<span class="chip flag">'+esc(t.flag)+'</span>':'')+'<span class="chip src">'+esc(SRCN[t.src]||t.src)+'</span>'+(on?'<span class="chip okc">Done</span>':'')+'</div>'+metaHtml(t.id)+'</div></li>'}
  function prog(c){if(c.stage==null)return "";var i=ST.indexOf(c.stage),pct=Math.round((i+1)/ST.length*100);
   return '<div class="sh-prog" role="img" aria-label="'+esc(c.stage)+', '+pct+' percent"><div class="sh-bar"><i style="width:'+pct+'%"></i></div><div class="sh-steps">'+ST.map(function(s,k){return '<span class="'+(k===i?'cur':k<i?'on':'')+'">'+esc(s)+'</span>'}).join("")+'</div></div>'}
  function draw(){
@@ -1180,10 +1310,11 @@ function renderShipping(S){
   });
   var P=S.partners||[];
   if(P.length)h+='<div class="card"><details><summary><b>Shipping partners and contacts</b></summary><table class="sh-partners">'+P.map(function(p){return '<tr><td>'+esc(p.company)+'</td><td>'+esc(p.person)+'</td><td>'+(p.email?'<a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a>':'')+'</td><td>'+esc(p.role)+'</td></tr>'}).join("")+'</table></details></div>';
-  el.innerHTML=h;$("#nShip").textContent=openT||"";setHide(hideDone);
+  paint(el,h);$("#nShip").textContent=openT||"";setHide(hideDone);
  }
  function others(){SYNC_HOOKS.forEach(function(f){if(f!==hook)try{f()}catch(e){}})}
  el.addEventListener("change",function(e){
+  if(e.target.closest(".tmeta"))return;
   var li=e.target.closest("li.sh-td");if(!li)return;var id=li.getAttribute("data-td"),t=find(id),on=e.target.checked;if(!t)return;reload();
   if(t.src==="daily"){if(on){dt[id]=Date.now();store(DKEY,dt);var w=load(WKEY);if(w[id]){delete w[id];store(WKEY,w)}}else{delete dt[id];store(DKEY,dt)}}
   else if(t.src==="marketing"){mt[id]=on?1:0;store(MKEY,mt);if(on){var mw=load(MWKEY);if(mw[id]){delete mw[id];store(MWKEY,mw)}}}
@@ -1225,7 +1356,7 @@ function renderProjects(D){
  if(!C.length)h+='<div class="card"><p class="note">No project meetings on the calendar for this day.</p></div>';
  C.forEach(function(c){
   var T=(c.todos||[]).slice().sort(function(a,b){return (isDone(a)?1:0)-(isDone(b)?1:0)}),open=T.filter(function(t){return !isDone(t)}).length;
-  function tdHtml(t){var d=isDone(t);return '<li class="'+(d?'done':'')+'"><span class="t">'+esc(t.text)+'</span><div class="meta"><span class="chip src">'+esc(SRC[t.src]||t.src||"")+'</span><span class="chip">Owner: '+esc(t.owner||"")+'</span>'+(t.due?'<span class="chip due">Due '+esc(t.due)+'</span>':'')+(d?'<span class="chip okc">Done</span>':'')+'</div></li>'}
+  function tdHtml(t){var d=isDone(t),id=t.id||"";return '<li class="'+(d?'done':'')+uprioCls(id)+'"'+(id?' data-id="'+esc(id)+'"':'')+'><span class="t">'+esc(t.text)+'</span><div class="meta"><span class="chip src">'+esc(SRC[t.src]||t.src||"")+'</span><span class="chip">Owner: '+esc(t.owner||"")+'</span>'+(t.due?'<span class="chip due">Due '+esc(t.due)+'</span>':'')+(d?'<span class="chip okc">Done</span>':'')+'</div>'+(id?metaHtml(id):'')+'</li>'}
   var first=T.slice(0,6),rest=T.slice(6);
   var W=c.waiting||[];
   h+='<div class="card pjcard'+(c.id===nowId?' now':'')+'" id="pj-'+esc(c.id)+'"><div class="pjhead"><div class="pjtime">'+esc(etTime(c.start))+'<span>to '+esc(etTime(c.end,true))+' ET</span></div><div><h3>'+esc(c.title)+'</h3>'+
@@ -1239,7 +1370,7 @@ function renderProjects(D){
    ((c.sources||[]).length?'<details class="pjsrc"><summary>Sources</summary>'+c.sources.map(function(s){var u=safeUrl(s.url);return u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(s.label)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("")+'</details>':'')+
    '</div>';
  });
- el.innerHTML=h;$("#nProj").textContent=C.length||"";
+ paint(el,h);$("#nProj").textContent=C.length||"";
 }
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-jump]");if(!b)return;var t=document.getElementById("pj-"+b.getAttribute("data-jump"));if(t)t.scrollIntoView({behavior:reduced()?"auto":"smooth",block:"start"})});
 
