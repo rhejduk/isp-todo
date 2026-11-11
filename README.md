@@ -12,11 +12,11 @@ A private, password protected page. Everything readable is encrypted in the brow
 
 Each Daily task in `data/daily.json` has `assigned_date` (`YYYY-MM-DD`): the date it was added or assigned. Set it once from the earliest date in `sources`, or the date it was first added. Do not change `assigned_date` when updating an existing task.
 
-The Daily tab sorts open tasks **newest assigned date first** within each section (Top priorities, New since last update, Follow-ups, and within each By project group). Project groups stay alphabetical. The sort lives in `src/template.html` (`renderDaily`, `byAssigned`), so later refreshes keep this order without re-sorting the JSON. Each task shows a muted "Assigned Mon D" line under the action.
+The Daily tab sorts open tasks **newest assigned date first** within each section (Top priorities, New since last update, Follow-ups, and within each By project group). Project groups stay alphabetical. A user-set Priority then rises within that same section (Urgent, High, Medium, Low, then unprioritized), without moving a task across sections. The sort lives in `src/template.html`, so later refreshes keep this order without re-sorting the JSON. Each task shows a muted "Assigned Mon D" line under the action.
 
 ## Priority and notes
 
 Every task has a Priority dropdown (None, Urgent, High, Medium, Low) and a collapsible Notes box. Both sync across
 devices with the checkmarks, keyed by the same stable task ids, so a daily rebuild of the lists does not wipe them.
-Priorities highlight the task but do not reorder the list. To read back what is saved, from this repo run
+Priorities highlight the task and, within each list or section, automatically move it up as soon as a priority is set (Urgent, then High, Medium, Low, then unprioritized tasks in their original order). Done items stay in their existing done placement and are not pulled above open ones. To read back what is saved, from this repo run
 `./read_notes.sh` (see SYNC.md).

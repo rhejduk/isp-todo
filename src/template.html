@@ -475,6 +475,11 @@ details.tnotes>summary{font-size:.78rem;color:#8a4fc7;cursor:pointer;font-weight
 li.bsub .tmeta,li.sh-td .tmeta{flex:1 1 100%;margin-left:29px;margin-top:4px}
 .pjsec li .tmeta{margin-top:6px}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Smooth FLIP move when a task rises or settles by priority */
+li.task.prio-slide,li.bsub.prio-slide,li.sh-td.prio-slide,li.prio-slide{will-change:transform;z-index:3}
+body.calm li.task.prio-slide,body.calm li.bsub.prio-slide,body.calm li.sh-td.prio-slide,body.calm li.prio-slide{transition:none!important;transform:none!important;will-change:auto}
+@media (prefers-reduced-motion:reduce){li.task.prio-slide,li.bsub.prio-slide,li.sh-td.prio-slide,li.prio-slide{transition:none!important;transform:none!important;will-change:auto}}
 </style>
 </head>
 <body>
@@ -822,13 +827,15 @@ function metaHtml(id){
    '<span class="n-saved" hidden>Saved</span></details></div>';
 }
 var META_SNAP=null,noteTimers={},savedTimers={};
+var META_MORE=null;
 function snapMeta(root){
-  var s={};
+  var s={},more={};
   $$("[data-meta]",root||document).forEach(function(box){
     var id=box.getAttribute("data-meta"),ta=box.querySelector(".n-area"),d=box.querySelector("details.tnotes"),sv=box.querySelector(".n-saved");
     s[id]={open:!!(d&&d.open),val:ta?ta.value:null,start:ta?ta.selectionStart:0,end:ta?ta.selectionEnd:0,focus:!!(ta&&document.activeElement===ta),saved:!!(sv&&!sv.hidden)};
   });
-  META_SNAP=s;
+  $$("details[data-more]",root||document).forEach(function(d){more[d.getAttribute("data-more")]=!!d.open});
+  META_SNAP=s;META_MORE=more;
 }
 function restoreMeta(root){
   var s=META_SNAP;if(!s)return;
@@ -840,6 +847,7 @@ function restoreMeta(root){
     if(d&&(st.open||st.focus))d.open=true;
     if(sv&&st.saved&&st.focus)sv.hidden=false;
   });
+  if(META_MORE)$$("details[data-more]",root||document).forEach(function(d){var k=d.getAttribute("data-more");if(k in META_MORE)d.open=META_MORE[k]});
 }
 function paint(el,html){snapMeta(el);el.innerHTML=html;restoreMeta(el)}
 function markPrioHost(id,val){
@@ -851,12 +859,50 @@ function markPrioHost(id,val){
   });
   $$("select.prio-sel[data-prio=\""+CSS.escape(id)+"\"]").forEach(function(s){s.className="prio-sel prio-"+(val||"none");if(s.value!==(val||""))s.value=val||""});
 }
+function prioRank(id){var i=PRIOS.indexOf(prioVal(id));return i<0?PRIOS.length:i}
+function sortByPrio(arr,idFn){return arr.map(function(x,i){return {x:x,i:i}}).sort(function(a,b){var d=prioRank(idFn(a.x))-prioRank(idFn(b.x));return d||(a.i-b.i)}).map(function(o){return o.x})}
+function sortOpenThenPrio(arr,idFn,isDone){return sortByPrio(arr.filter(function(x){return !isDone(x)}),idFn).concat(sortByPrio(arr.filter(isDone),idFn))}
+function itemPrioId(el){return el.getAttribute("data-id")||el.getAttribute("data-s4")||el.getAttribute("data-sub")||el.getAttribute("data-td")||""}
+function capturePrioRects(root){
+  var m={};
+  $$("li[data-id],li[data-s4],li[data-sub],li[data-td]",root).forEach(function(el){
+    if(el.closest("section.panel.hidden"))return;
+    var id=itemPrioId(el);if(!id)return;
+    (m[id]=m[id]||[]).push(el.getBoundingClientRect());
+  });
+  return m;
+}
+function playPrioFlip(root,first,movedId){
+  if(!first||reduced()||calm())return;
+  $$("li[data-id],li[data-s4],li[data-sub],li[data-td]",root).forEach(function(el){
+    if(el.closest("section.panel.hidden"))return;
+    var id=itemPrioId(el),list=first[id];if(!list||!list.length)return;
+    var f=list.shift(),l=el.getBoundingClientRect(),dx=f.left-l.left,dy=f.top-l.top;
+    if(Math.abs(dx)<1&&Math.abs(dy)<1){if(id===movedId){el.classList.add("pop","shine");setTimeout(function(){el.classList.remove("pop","shine")},700)}return}
+    el.classList.add("prio-slide");
+    el.style.transition="none";
+    el.style.transform="translate("+dx.toFixed(1)+"px,"+dy.toFixed(1)+"px)";
+    el.style.zIndex=id===movedId?"5":"3";
+    el.getBoundingClientRect();
+    requestAnimationFrame(function(){requestAnimationFrame(function(){el.style.transition="transform .55s cubic-bezier(.22,1.25,.36,1)";el.style.transform=""})});
+    var done=false,end=function(e){if(done||(e&&e.propertyName&&e.propertyName!=="transform"))return;done=true;el.style.transition="";el.style.transform="";el.style.zIndex="";el.classList.remove("prio-slide");el.removeEventListener("transitionend",end)};
+    el.addEventListener("transitionend",end);
+    setTimeout(end,800);
+    if(id===movedId)el.classList.add("shine");
+  });
+}
+function redrawForPrio(movedId){
+  var root=document.querySelector("main section.panel:not(.hidden)")||document;
+  var first=(!reduced()&&!calm()&&!document.hidden)?capturePrioRects(root):null;
+  SYNC_HOOKS.forEach(function(f){try{f()}catch(e){}});
+  if(first)playPrioFlip(root,first,movedId);
+}
 function setPrio(id,val){
   if(!id)return;
   val=PRIOS.indexOf(val)>=0?val:"";
   var o=load(PKEY);
   if(!val){if(!(id in o))return;delete o[id]}else{if(o[id]===val)return;o[id]=val}
-  store(PKEY,o);markPrioHost(id,val);
+  store(PKEY,o);markPrioHost(id,val);redrawForPrio(id);
 }
 function showSaved(id){
   $$("[data-meta=\""+CSS.escape(id)+"\"] .n-saved").forEach(function(sv){
@@ -924,10 +970,10 @@ function renderDaily(D){
   clearTimeout(drawT);
   var done=T.filter(function(t){return ticks[t.task_id]}).length,total=T.length,pct=total?Math.round(done/total*100):0;
   var projs={};T.filter(function(t){return t.section==="by_project"&&!ticks[t.task_id]&&!isWip(t)}).forEach(function(t){(projs[t.project]=projs[t.project]||[]).push(t)});
-  Object.keys(projs).forEach(function(n){projs[n].sort(byAssigned)});
+  Object.keys(projs).forEach(function(n){projs[n]=sortByPrio(projs[n].sort(byAssigned),function(t){return t.task_id})});
   var pn=Object.keys(projs).sort(function(a,b){return a.localeCompare(b)});
   var m=D.meta||{},today=dayKey(Date.now());
-  var W=T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)});
+  var W=sortByPrio(T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)}),function(t){return t.task_id});
   var h='<div class="card"><h2>Daily To Do</h2><p class="sub">Only tasks assigned to you, committed to by you, or waiting on you. List for '+esc(m.list_date_label||m.list_date)+'.</p>'+
    vineHtml("daily")+'<div class="vinelbl">'+done+' of '+total+' done ('+pct+'%)'+(pct>=100?'. Your garden is in full bloom!':'')+'</div>'+
    '<div class="strip"><div><b>'+(total-done)+'</b><span>Active</span></div><div><b>'+openIn("top_priorities")+'</b><span>Top priorities</span></div><div><b>'+openIn("new_since_last_digest")+'</b><span>New since last update</span></div><div><b>'+openIn("follow_ups_and_waiting")+'</b><span>Follow-ups</span></div><div><b>'+pn.length+'</b><span>Project groups</span></div><div class="wipt"><b>'+W.length+'</b><span>In progress</span></div></div>'+
@@ -936,12 +982,12 @@ function renderDaily(D){
    '<div class="card wipbox" id="wipGroup"><details'+(pref("wipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
    (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on any task and it will wait for you up here while you work on it.</p>')+'</details></div>';
   SEC.forEach(function(s){
-   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(byAssigned),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
+   var ts=sortByPrio(T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(byAssigned),function(t){return t.task_id}),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
    h+='<div class="sechead">'+bloom(s[3])+'<h2>'+s[1]+'</h2><span class="pill">'+ts.length+' open</span>'+(wn?'<span class="pill wipp">'+wn+' in progress</span>':'')+'</div><p class="note">'+s[2]+'</p>';
    if(s[0]==="by_project"){h+=pn.length?'<div class="pgrid">'+pn.map(function(n){return '<div class="card pcard"><h3>'+esc(n)+' <span class="pill">'+projs[n].length+'</span></h3><ul class="tasks">'+projs[n].map(taskHtml).join("")+'</ul></div>'}).join("")+'</div>':'<div class="card"><p class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</p></div>'}
    else h+='<div class="card"><ul class="tasks">'+(ts.length?ts.map(taskHtml).join(""):'<li class="note">'+(all?'All done here. Lovely.':'Nothing here right now.')+'</li>')+'</ul></div>';
   });
-  var dn=T.filter(function(t){return ticks[t.task_id]}).sort(function(a,b){return (+ticks[b.task_id]||0)-(+ticks[a.task_id]||0)});
+  var dn=sortByPrio(T.filter(function(t){return ticks[t.task_id]}).sort(function(a,b){return (+ticks[b.task_id]||0)-(+ticks[a.task_id]||0)}),function(t){return t.task_id});
   var tday=dn.filter(function(t){return ticks[t.task_id]>1&&dayKey(ticks[t.task_id])===today}),earlier=dn.filter(function(t){return tday.indexOf(t)<0});
   var DW=D.done_week||{},dwi=DW.items||[];
   if(dwi.length){var dwd={};dwi.forEach(function(i){(dwd[i.date]=dwd[i.date]||[]).push(i)});
@@ -1004,7 +1050,7 @@ function renderMarketing(M){
  function s4block(p){if(!p.deliverables||!p.deliverables.length)return "";var key=p.name,D=p.deliverables;
   return '<div class="s4" data-s4p="'+esc(key)+'"><div class="s4top">'+s4bar(p)+'</div><details class="s4d" data-s4k="'+esc(key)+'"'+(s4open[key]?' open':'')+'><summary>Stage 4 deliverables ('+D.length+' checklist items)</summary>'+
    '<p class="s4note">The bar counts only these '+(S4.in_scope||D.length)+' checklist deliverables, not the meeting tasks below. Lighter segment is in progress. Phase is where the brand sits per its latest meetings. Unknown means no meeting evidence yet, so tick anything you know is done.</p>'+
-   SECT.map(function(sec,i){var xs=D.filter(function(d){return d.sec===sec});if(!xs.length)return "";return '<h5 class="s4sec">'+(i+1)+'. '+esc(sec)+' <span class="pill" data-s4sec="'+esc(sec)+'">'+xs.filter(dDone).length+' of '+xs.length+' done</span></h5><ul class="tasks">'+xs.map(dHtml).join("")+'</ul>'}).join("")+
+   SECT.map(function(sec,i){var xs=sortOpenThenPrio(D.filter(function(d){return d.sec===sec}),function(d){return d.id},dDone);if(!xs.length)return "";return '<h5 class="s4sec">'+(i+1)+'. '+esc(sec)+' <span class="pill" data-s4sec="'+esc(sec)+'">'+xs.filter(dDone).length+' of '+xs.length+' done</span></h5><ul class="tasks">'+xs.map(dHtml).join("")+'</ul>'}).join("")+
    '</details></div>'}
  function s4refresh(p){var box=el.querySelector('.s4[data-s4p="'+CSS.escape(p.name)+'"]');if(!box)return;box.querySelector(".s4top").innerHTML=s4bar(p);
   $$("[data-s4sec]",box).forEach(function(pl){var sec=pl.getAttribute("data-s4sec"),xs=p.deliverables.filter(function(d){return d.sec===sec});pl.textContent=xs.filter(dDone).length+" of "+xs.length+" done"})}
@@ -1026,7 +1072,7 @@ function renderMarketing(M){
   var dn=xs.filter(pDone).length,dsh=xs.filter(function(x){return x.dash}).length;
   return '<div class="card pv" data-pv="'+esc(name)+'"><h3>'+esc(V.title||name+": all tasks")+' <span class="pill">'+dn+' of '+xs.length+' done</span>'+(dsh?'<span class="pill">'+dsh+' from Dash</span>':'')+'</h3>'+
    (V.note?'<p class="why">'+esc(V.note)+(V.updated?' Updated '+esc(V.updated)+'.':'')+'</p>':'')+(V.hours?'<p class="pvhours"><b>Hours:</b> '+esc(V.hours)+'</p>':'')+
-   brands.map(function(b){var bs=xs.filter(function(x){return x.brand===b});return '<h4 class="pvb">'+esc(b)+' <span class="pill">'+bs.filter(pDone).length+' of '+bs.length+' done</span></h4><ul class="tasks">'+bs.map(pItemHtml).join("")+'</ul>'}).join("")+'</div>'}
+   brands.map(function(b){var bs=sortOpenThenPrio(xs.filter(function(x){return x.brand===b}),function(x){return x.id},pDone);return '<h4 class="pvb">'+esc(b)+' <span class="pill">'+bs.filter(pDone).length+' of '+bs.length+' done</span></h4><ul class="tasks">'+bs.map(pItemHtml).join("")+'</ul>'}).join("")+'</div>'}
  function draw(){
   clearTimeout(drawT);
   var all=allTasks(),done=all.filter(isDone).length,total=all.length,pct=total?Math.round(done/total*100):0,m=M.meta||{};
@@ -1051,8 +1097,8 @@ function renderMarketing(M){
     '<div class="minivine"><i style="width:'+(p.tasks.length?Math.round(pd/p.tasks.length*100):0)+'%"></i></div>'+
     (p.why?'<p class="why">'+esc(p.why)+(p.date?' Latest meeting: '+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(p.date)+'</a>':esc(p.date))+'.':'')+'</p>':'')+
     s4block(p)+
-    LANES.map(function(l){var ts=p.tasks.filter(function(t){return (t.o||"PMs")===l[0]});if(!ts.length||(lane&&lane!==l[0]))return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
-    (rest.length&&!lane?'<div class="og"><h4>Others</h4><ul class="tasks">'+rest.map(taskHtml).join("")+'</ul></div>':"")+'</div>';
+    LANES.map(function(l){var ts=sortOpenThenPrio(p.tasks.filter(function(t){return (t.o||"PMs")===l[0]}),function(t){return t.id},isDone);if(!ts.length||(lane&&lane!==l[0]))return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
+    (rest.length&&!lane?'<div class="og"><h4>Others</h4><ul class="tasks">'+sortOpenThenPrio(rest,function(t){return t.id},isDone).map(taskHtml).join("")+'</ul></div>':"")+'</div>';
   });
   paint(el,h);growVine(el,"mkt",pct);counts.m=total-done;$("#nMkt").textContent=total-done;updateGreet();setHide(hideDone);
  }
@@ -1109,9 +1155,9 @@ function renderDave(V){
  function draw(){
   clearTimeout(drawT);
   var done=T.filter(function(t){return ticks[t.task_id]}).length,total=T.length,m=V.meta||{},today=dayKey(Date.now());
-  var W=T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)});
+  var W=sortByPrio(T.filter(isWip).sort(function(a,b){return (+wip[a.task_id]||0)-(+wip[b.task_id]||0)}),function(t){return t.task_id});
   var lamps="";for(var i=0;i<7;i++)lamps+='<i class="lamp" style="left:'+(8+i*13+rnd(-4,4)).toFixed(0)+'%;top:'+rnd(10,80).toFixed(0)+'%;animation-delay:'+(-rnd(0,5)).toFixed(1)+'s;animation-duration:'+rnd(4,7).toFixed(1)+'s"></i>';
-  var ring=T.slice().sort(byPrio).map(function(t){var on=!!ticks[t.task_id];return shroomSvg((on?'lit':'')+(t.priority==="high"?' prio':'')+(on&&t.task_id===lastLit?' justlit':''),t.action+(on?' (done)':''))}).join("");
+  var ring=sortByPrio(T.slice().sort(byPrio),function(t){return t.task_id}).map(function(t){var on=!!ticks[t.task_id];return shroomSvg((on?'lit':'')+(t.priority==="high"?' prio':'')+(on&&t.task_id===lastLit?' justlit':''),t.action+(on?' (done)':''))}).join("");
   var h='<div class="card dave-hero">'+lamps+'<div class="dhead">'+shroomSvg("shroom","Toadstool")+'<div><h2>Talk with Dave</h2><p class="sub">Things I need to sit down with Dave about. The top one is the priority. Each toadstool lights up when we settle one.</p></div></div>'+
    '<div class="ring" aria-label="'+done+' of '+total+' talked through">'+ring+'</div><div class="vinelbl">'+done+' of '+total+' talked through'+(total&&done===total?'. Nothing left to bring up. Lovely!':'')+'</div>'+
    '<div class="strip"><div><b>'+(total-done)+'</b><span>To talk about</span></div><div><b>'+openIn("priority")+'</b><span>Priority</span></div><div><b>'+T.filter(function(t){return t.status==="waiting_on_dave"&&!ticks[t.task_id]}).length+'</b><span>Waiting on Dave</span></div><div class="wipt"><b>'+W.length+'</b><span>In progress</span></div></div>'+
@@ -1120,11 +1166,11 @@ function renderDave(V){
    '<div class="card wipbox" id="daveWip"><details'+(pref("daveWipClosed")?'':' open')+'><summary>'+SPROUT.replace('width="14" height="14"','width="24" height="24"')+'In progress <span class="pill wipp">'+W.length+'</span></summary>'+
    (W.length?'<ul class="tasks" style="margin-top:8px">'+W.map(function(t){return taskHtml(t,true)}).join("")+'</ul>':'<p class="hint">Tap <b>In progress</b> on anything you have started with Dave and it will wait up here.</p>')+'</details></div>';
   SEC.forEach(function(s){
-   var ts=T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(byPrio),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
+   var ts=sortByPrio(T.filter(function(t){return t.section===s[0]&&!ticks[t.task_id]&&!isWip(t)}).sort(byPrio),function(t){return t.task_id}),wn=T.filter(function(t){return t.section===s[0]&&isWip(t)}).length,all=T.filter(function(t){return t.section===s[0]}).length;
    h+='<div class="sechead">'+bloom(s[3])+'<h2>'+s[1]+'</h2><span class="pill">'+ts.length+' open</span>'+(wn?'<span class="pill wipp">'+wn+' in progress</span>':'')+'</div><p class="note">'+s[2]+'</p>';
    h+='<div class="card"><ul class="tasks">'+(ts.length?ts.map(taskHtml).join(""):'<li class="note">'+(all?'All talked through. Lovely.':'Nothing here right now.')+'</li>')+'</ul></div>';
   });
-  var dn=T.filter(function(t){return ticks[t.task_id]}).sort(function(a,b){return (+ticks[b.task_id]||0)-(+ticks[a.task_id]||0)});
+  var dn=sortByPrio(T.filter(function(t){return ticks[t.task_id]}).sort(function(a,b){return (+ticks[b.task_id]||0)-(+ticks[a.task_id]||0)}),function(t){return t.task_id});
   var tday=dn.filter(function(t){return ticks[t.task_id]>1&&dayKey(ticks[t.task_id])===today}),earlier=dn.filter(function(t){return tday.indexOf(t)<0});
   h+='<div class="card donebox"><details open><summary>'+bloom("#ffd76a")+'Settled today <span class="pill">'+tday.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+(tday.length?tday.map(taskHtml).join(""):'<li class="note">Check one off after you talk and a few sparkles will float up.</li>')+'</ul></details>'+
    (earlier.length?'<details style="margin-top:12px"><summary>'+bloom("#e3d4ff")+'Settled earlier <span class="pill">'+earlier.length+'</span></summary><ul class="tasks" style="margin-top:8px">'+earlier.map(taskHtml).join("")+'</ul></details>':'')+'</div>';
@@ -1187,7 +1233,7 @@ function renderBrief(B){
  function mtgItems(m){return {mine:m.todos||[],owed:(m.owes||[]).reduce(function(a,o){return a.concat(o.items)},[])}}
  function bar(done,total,label){var p=total?Math.round(done/total*100):0;return '<div class="br-bar" role="img" aria-label="'+esc(label+": "+done+" of "+total+" done")+'"><i style="width:'+p+'%"></i></div>'}
  function listHtml(items,cap,mk,lk){
-  var open=items.filter(function(s){return !subDone(s)}).sort(function(a,b){return (b.urgent?1:0)-(a.urgent?1:0)}),done=items.filter(subDone),all=open.concat(done);
+  var open=sortByPrio(items.filter(function(s){return !subDone(s)}).sort(function(a,b){return (b.urgent?1:0)-(a.urgent?1:0)}),function(s){return s.id}),done=sortByPrio(items.filter(subDone),function(s){return s.id}),all=open.concat(done);
   var head=all.slice(0,cap),rest=all.slice(cap);
   return '<ul class="br-list">'+head.map(mk).join("")+'</ul>'+(rest.length?'<details class="br-more" data-more="'+esc(lk||"")+'"'+((pref("briefMoreOpen")||{})[lk]?' open':'')+'><summary>'+rest.length+' more</summary><ul class="br-list">'+rest.map(mk).join("")+'</ul></details>':'');
  }
@@ -1241,7 +1287,7 @@ function renderBrief(B){
   });
   h+='<details class="br-sec br-other" data-proj="other-updates"'+(closed["other-updates"]?'':' open')+'><summary class="br-day">'+bloom("#bfe8d4")+'<h3>Other updates</h3><span class="pill">'+E.length+' today</span><span class="pill">'+openS+' to check off</span></summary><div class="card">';
   if(!E.length)h+='<p class="note">Nothing outside my meetings yet today. Supplier replies, quotes and other news land here.</p>';
-  groups.forEach(function(g){h+='<h4 class="br-oh">'+esc(g.k)+'</h4><ul class="tasks">'+g.items.map(itemHtml).join("")+'</ul>'});
+  groups.forEach(function(g){h+='<h4 class="br-oh">'+esc(g.k)+'</h4><ul class="tasks">'+sortOpenThenPrio(g.items,function(u){return u.id},entryDone).map(itemHtml).join("")+'</ul>'});
   h+='</div></details>';
   paint(el,h);$("#nBrief").textContent=(tMineOpen+openS)||"";setHide(hideDone);
  }
@@ -1295,7 +1341,7 @@ function renderShipping(S){
    '<div class="srcline">'+(m.updated_at?'Updated '+fmtDate(m.updated_at)+'. ':'')+'Checked: '+esc(m.sources_checked||"")+'</div>'+
    '<div class="tools"><button type="button" class="hideBtn"></button></div></div>';
   C.forEach(function(c){
-   var T=(c.todos||[]).slice().sort(function(a,b){return (isDone(a)?1:0)-(isDone(b)?1:0)}),open=T.filter(function(t){return !isDone(t)}).length,W=c.waiting||[];
+   var T=sortOpenThenPrio((c.todos||[]).slice(),function(t){return t.id},isDone),open=T.filter(function(t){return !isDone(t)}).length,W=c.waiting||[];
    h+='<div class="card pjcard sh-card" id="sh-'+esc(c.id)+'"><div class="sh-top"><h3>'+esc(c.title)+'</h3>'+(c.refs||[]).map(function(r){return '<span class="sh-ref">'+esc(r)+'</span>'}).join("")+'</div>'+
     '<div class="chips" style="margin-top:6px"><span class="chip proj">'+esc(c.project)+'</span>'+(c.stage!=null?'<span class="chip">'+esc(c.stage)+'</span>':'')+(c.flags||[]).map(function(f){return '<span class="chip flag">'+esc(f)+'</span>'}).join("")+'</div>'+
     prog(c)+
@@ -1355,7 +1401,7 @@ function renderProjects(D){
   '<div class="srcline">Checked: '+esc(D.sources_checked||"")+(D.generated_at?' Updated '+fmtDate(D.generated_at)+'.':'')+((D.skipped||[]).length?' Skipped (not project meetings): '+esc(D.skipped.map(function(s){return typeof s==="string"?s:s.title}).join(", "))+'.':'')+'</div></div>';
  if(!C.length)h+='<div class="card"><p class="note">No project meetings on the calendar for this day.</p></div>';
  C.forEach(function(c){
-  var T=(c.todos||[]).slice().sort(function(a,b){return (isDone(a)?1:0)-(isDone(b)?1:0)}),open=T.filter(function(t){return !isDone(t)}).length;
+  var T=sortOpenThenPrio((c.todos||[]).slice(),function(t){return t.id||""},isDone),open=T.filter(function(t){return !isDone(t)}).length;
   function tdHtml(t){var d=isDone(t),id=t.id||"";return '<li class="'+(d?'done':'')+uprioCls(id)+'"'+(id?' data-id="'+esc(id)+'"':'')+'><span class="t">'+esc(t.text)+'</span><div class="meta"><span class="chip src">'+esc(SRC[t.src]||t.src||"")+'</span><span class="chip">Owner: '+esc(t.owner||"")+'</span>'+(t.due?'<span class="chip due">Due '+esc(t.due)+'</span>':'')+(d?'<span class="chip okc">Done</span>':'')+'</div>'+(id?metaHtml(id):'')+'</li>'}
   var first=T.slice(0,6),rest=T.slice(6);
   var W=c.waiting||[];
@@ -1364,7 +1410,7 @@ function renderProjects(D){
    '<div class="pjwho">With '+esc((c.attendees||[]).join(", "))+(c.organizer&&c.organizer!=="Rachel Hejduk"?'. Organizer: '+esc(c.organizer):'')+(safeUrl(c.calendar_url)?'. <a href="'+esc(c.calendar_url)+'" target="_blank" rel="noopener">Calendar</a>':'')+'</div></div></div>'+
    (c.note?'<div class="pjnote">'+esc(c.note)+'</div>':'')+
    '<div class="pjsec st"><h4>Status</h4>'+(c.status||[]).map(function(p){return '<p>'+esc(p)+'</p>'}).join("")+'</div>'+
-   '<div class="pjsec td"><h4>Open to dos<span>'+open+' open</span></h4>'+(T.length?'<ul class="plain">'+first.map(tdHtml).join("")+'</ul>'+(rest.length?'<details><summary>'+rest.length+' more</summary><ul class="plain">'+rest.map(tdHtml).join("")+'</ul></details>':''):'<p class="note" style="margin-left:0">Nothing on your lists for this one.</p>')+'</div>'+
+   '<div class="pjsec td"><h4>Open to dos<span>'+open+' open</span></h4>'+(T.length?'<ul class="plain">'+first.map(tdHtml).join("")+'</ul>'+(rest.length?'<details class="pj-more" data-more="'+esc("pj:"+c.id)+'"'+((pref("pjMoreOpen")||{})["pj:"+c.id]?' open':'')+'><summary>'+rest.length+' more</summary><ul class="plain">'+rest.map(tdHtml).join("")+'</ul></details>':''):'<p class="note" style="margin-left:0">Nothing on your lists for this one.</p>')+'</div>'+
    '<div class="pjsec wt"><h4>Outstanding and waiting on</h4>'+(W.length?'<ul class="plain">'+W.map(function(w){var d=isDone(w.ref),u=safeUrl(w.link);return '<li class="'+(d?'done':'')+'"><span class="t">'+esc(w.text)+'</span>'+(u?' <a class="go" href="'+esc(u)+'" target="_blank" rel="noopener">Open</a>':'')+'<div class="meta">'+(w.who?'<span class="chip wait">'+esc(w.who)+'</span>':'')+(w.ref?'<span class="chip src">'+esc(SRC[w.ref.src]||"")+'</span>':'')+(d?'<span class="chip okc">Settled</span>':'')+'</div></li>'}).join("")+'</ul>':'<p class="note" style="margin-left:0">Nothing outstanding found.</p>')+'</div>'+
    '<div class="pjsec ag"><h4>Suggested agenda</h4><ol>'+(c.agenda||[]).map(function(a){return '<li>'+esc(a)+'</li>'}).join("")+'</ol></div>'+
    ((c.sources||[]).length?'<details class="pjsrc"><summary>Sources</summary>'+c.sources.map(function(s){var u=safeUrl(s.url);return u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(s.label)+'</a>':'<span>'+esc(s.label)+'</span>'}).join("")+'</details>':'')+
@@ -1373,6 +1419,7 @@ function renderProjects(D){
  paint(el,h);$("#nProj").textContent=C.length||"";
 }
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-jump]");if(!b)return;var t=document.getElementById("pj-"+b.getAttribute("data-jump"));if(t)t.scrollIntoView({behavior:reduced()?"auto":"smooth",block:"start"})});
+document.addEventListener("toggle",function(e){var d=e.target;if(!d||!d.classList||!d.classList.contains("pj-more"))return;var mo=pref("pjMoreOpen")||{},k=d.getAttribute("data-more");if(!k)return;if(d.open)mo[k]=1;else delete mo[k];pref("pjMoreOpen",mo)},true);
 
 function render(data){
  Sync.start(data.sync);SYNC_HOOKS.push(function(){if(PJ)renderProjects()});
