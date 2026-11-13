@@ -163,7 +163,8 @@ li.task{position:relative;display:flex;gap:12px;padding:11px 6px;border-top:1px 
 li.task:first-child{border-top:0}
 li.task:hover{background:rgba(255,227,236,.35)}
 li.task .body{flex:1;min-width:0}
-li.task .what{font-weight:700}
+li.task .what{font-weight:700;overflow-wrap:anywhere}
+li.task .body .ctx,li.sh-td .t{overflow-wrap:anywhere}
 li.task .who{display:block;font-size:.85rem;color:var(--soft)}
 li.task.done .what{text-decoration:line-through;text-decoration-color:rgba(224,120,159,.6);color:#9a89ab}
 li.task.done{background:rgba(226,246,236,.45)}
