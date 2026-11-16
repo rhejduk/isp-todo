@@ -816,6 +816,11 @@ function updateGreet(){$("#greet").textContent=hello()+"! You have "+counts.d+" 
 /* ---------- priority + notes (synced under isp-todo-priority / isp-todo-notes) ---------- */
 var PKEY="isp-todo-priority",NKEY="isp-todo-notes",PRIOS=["Urgent","High","Medium","Low"];
 function prioVal(id){var v=load(PKEY)[id];return PRIOS.indexOf(v)>=0?v:""}
+function normPrio(p){if(!p)return "";p=String(p);if(PRIOS.indexOf(p)>=0)return p;p=p.charAt(0).toUpperCase()+p.slice(1).toLowerCase();return PRIOS.indexOf(p)>=0?p:""}
+function taskPrio(t){return prioVal(t.id||t.task_id)||normPrio(t.priority)}
+function taskPrioRank(t){var i=PRIOS.indexOf(taskPrio(t));return i<0?PRIOS.length:i}
+function sortByTaskPrio(arr){return arr.map(function(x,i){return {x:x,i:i}}).sort(function(a,b){var d=taskPrioRank(a.x)-taskPrioRank(b.x);return d||(a.i-b.i)}).map(function(o){return o.x})}
+function sortOpenThenTaskPrio(arr,isDone){return sortByTaskPrio(arr.filter(function(x){return !isDone(x)})).concat(sortByTaskPrio(arr.filter(isDone)))}
 function notesVal(id){var v=load(NKEY)[id];if(v&&typeof v==="object")return String(v.text||"");return typeof v==="string"?v:""}
 function uprioCls(id){var p=prioVal(id);return p?" uprio-"+p.toLowerCase():""}
 function metaHtml(id){
@@ -1028,12 +1033,14 @@ function renderMarketing(M){
  var ticks=load(MKEY),wip=load(MWKEY),el=$("#tab-marketing"),drawT=0;
  var LANES=M.lanes||[["Rachel","Your own tasks"],["Curtis","Website"],["Gabriel","Meta and other ads"],["Adriana","Packaging and graphics"],["Ben","Everything else"],["PMs","PMs, founders and others"]];
  var order={4:0,5:1,0:2};
- var PR=M.projects.slice().sort(function(a,b){var s=(order[a.stage]==null?3:order[a.stage])-(order[b.stage]==null?3:order[b.stage]);return s||a.name.localeCompare(b.name)});
- var SECS={4:["Stage 4","Production started, not yet selling.","#f7a8c4"],5:["Stage 5","Selling now. Only FunL and Livin are tracked.","#cdb8f2"],0:["Other","Not tied to a project yet.","#9fdcbf"]};
  function isDone(t){return ticks.hasOwnProperty(t.id)?ticks[t.id]===1:!!t.d}
+ function projRank(p){var opens=(p.tasks||[]).filter(function(t){return !isDone(t)}),best=PRIOS.length,u=0,h=0;opens.forEach(function(t){var r=taskPrioRank(t);if(r<best)best=r;if(r===0)u++;if(r===1)h++});return {best:best,u:u,h:h}}
+ var PR=M.projects.slice().sort(function(a,b){var s=(order[a.stage]==null?3:order[a.stage])-(order[b.stage]==null?3:order[b.stage]);if(s)return s;var A=projRank(a),B=projRank(b);return (A.best-B.best)||(B.u-A.u)||(B.h-A.h)||a.name.localeCompare(b.name)});
+ var SECS={4:["Stage 4","Production started, not yet selling.","#f7a8c4"],5:["Stage 5","Selling now. Only FunL and Livin are tracked.","#cdb8f2"],0:["Other","Not tied to a project yet.","#9fdcbf"]};
  function ocls(o){return "o-"+String(o||"PMs").replace(/[^A-Za-z]/g,"")}
  function isWip(t){return !isDone(t)&&!!wip[t.id]}
- function taskHtml(t){var on=isDone(t),w=isWip(t);return '<li class="task'+(on?' done':'')+(w?' wip':'')+uprioCls(t.id)+'" data-id="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span>'+metaHtml(t.id)+'</div>'+(on?'':wipBtn(w))+'</li>'}
+ function mktPrioCls(t){var p=taskPrio(t);return p?" uprio-"+p.toLowerCase():""}
+ function taskHtml(t){var on=isDone(t),w=isWip(t);return '<li class="task'+(on?' done':'')+(w?' wip':'')+mktPrioCls(t)+'" data-id="'+esc(t.id)+'">'+cbx(on,on?"Mark not done":"Mark done")+'<div class="body"><span class="what">'+esc(t.t)+'</span><span class="who">'+esc(t.w)+'</span>'+metaHtml(t.id)+'</div>'+(on?'':wipBtn(w))+'</li>'}
  function allTasks(){var a=[];PR.forEach(function(p){a=a.concat(p.tasks)});return a}
  /* Stage 4 checklist deliverables: own ticks, own bar. Meeting tasks above are not counted. */
  var S4=(M.meta||{}).stage4||{},SECT=S4.sections||[],s4t=load(SKEY),s4open=pref("s4open")||{};
@@ -1065,7 +1072,7 @@ function renderMarketing(M){
  /* One list per person: their people[] items (linked ids share ticks with the project cards) plus any of their project-card tasks not already listed */
  function personItems(name){var V=PEO[name],seen={},out=[];
   ((V&&V.items)||[]).forEach(function(x){seen[x.id]=1;var ln=TIDX[x.id];out.push({id:x.id,brand:x.brand,t:x.t||(ln&&ln.t.t)||"",st:x.st,stw:x.stw,due:x.due,src:x.src,sd:x.sd,dash:x.dash,d:ln?!!ln.t.d||x.st==="done":x.st==="done"})});
-  PR.forEach(function(p){p.tasks.forEach(function(t){if((t.o||"PMs")===name&&!seen[t.id]){seen[t.id]=1;out.push({id:t.id,brand:p.name,t:t.t,st:t.d?"done":"open",src:t.w+(p.date?", "+p.name+" card (latest meeting "+p.date+")":""),d:!!t.d})}})});
+  PR.forEach(function(p){p.tasks.forEach(function(t){if((t.o||"PMs")===name&&!seen[t.id]){seen[t.id]=1;out.push({id:t.id,brand:p.name,t:t.t,st:t.d?"done":"open",src:t.w+(p.date?", "+p.name+" card (latest meeting "+p.date+")":""),d:!!t.d,priority:t.priority})}})});
   return out}
  function pDone(x){return ticks.hasOwnProperty(x.id)?ticks[x.id]===1:x.d}
  function pItemHtml(x){var on=pDone(x),w=!on&&!!wip[x.id],st=on?"done":(ticks.hasOwnProperty(x.id)&&x.d?"unticked":(x.st||"open"));
@@ -1075,7 +1082,7 @@ function renderMarketing(M){
   var dn=xs.filter(pDone).length,dsh=xs.filter(function(x){return x.dash}).length;
   return '<div class="card pv" data-pv="'+esc(name)+'"><h3>'+esc(V.title||name+": all tasks")+' <span class="pill">'+dn+' of '+xs.length+' done</span>'+(dsh?'<span class="pill">'+dsh+' from Dash</span>':'')+'</h3>'+
    (V.note?'<p class="why">'+esc(V.note)+(V.updated?' Updated '+esc(V.updated)+'.':'')+'</p>':'')+(V.hours?'<p class="pvhours"><b>Hours:</b> '+esc(V.hours)+'</p>':'')+
-   brands.map(function(b){var bs=sortOpenThenPrio(xs.filter(function(x){return x.brand===b}),function(x){return x.id},pDone);return '<h4 class="pvb">'+esc(b)+' <span class="pill">'+bs.filter(pDone).length+' of '+bs.length+' done</span></h4><ul class="tasks">'+bs.map(pItemHtml).join("")+'</ul>'}).join("")+'</div>'}
+   brands.map(function(b){var bs=sortOpenThenTaskPrio(xs.filter(function(x){return x.brand===b}),pDone);return '<h4 class="pvb">'+esc(b)+' <span class="pill">'+bs.filter(pDone).length+' of '+bs.length+' done</span></h4><ul class="tasks">'+bs.map(pItemHtml).join("")+'</ul>'}).join("")+'</div>'}
  function draw(){
   clearTimeout(drawT);
   var all=allTasks(),done=all.filter(isDone).length,total=all.length,pct=total?Math.round(done/total*100):0,m=M.meta||{};
@@ -1100,8 +1107,8 @@ function renderMarketing(M){
     '<div class="minivine"><i style="width:'+(p.tasks.length?Math.round(pd/p.tasks.length*100):0)+'%"></i></div>'+
     (p.why?'<p class="why">'+esc(p.why)+(p.date?' Latest meeting: '+(link?'<a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(p.date)+'</a>':esc(p.date))+'.':'')+'</p>':'')+
     s4block(p)+
-    LANES.map(function(l){var ts=sortOpenThenPrio(p.tasks.filter(function(t){return (t.o||"PMs")===l[0]}),function(t){return t.id},isDone);if(!ts.length||(lane&&lane!==l[0]))return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
-    (rest.length&&!lane?'<div class="og"><h4>Others</h4><ul class="tasks">'+sortOpenThenPrio(rest,function(t){return t.id},isDone).map(taskHtml).join("")+'</ul></div>':"")+'</div>';
+    LANES.slice().sort(function(a,b){var at=p.tasks.filter(function(t){return (t.o||"PMs")===a[0]&&!isDone(t)}),bt=p.tasks.filter(function(t){return (t.o||"PMs")===b[0]&&!isDone(t)});var ar=at.length?Math.min.apply(null,at.map(taskPrioRank)):PRIOS.length,br=bt.length?Math.min.apply(null,bt.map(taskPrioRank)):PRIOS.length;return (ar-br)||(LANES.indexOf(a)-LANES.indexOf(b))}).map(function(l){var ts=sortOpenThenTaskPrio(p.tasks.filter(function(t){return (t.o||"PMs")===l[0]}),isDone);if(!ts.length||(lane&&lane!==l[0]))return "";return '<div class="og"><h4 class="'+ocls(l[0])+'">'+esc(l[0]==="PMs"?l[1]:l[0])+(l[0]==="PMs"||l[0]==="Rachel"?'':'<span>'+esc(l[1])+'</span>')+'</h4><ul class="tasks">'+ts.map(taskHtml).join("")+'</ul></div>'}).join("")+
+    (rest.length&&!lane?'<div class="og"><h4>Others</h4><ul class="tasks">'+sortOpenThenTaskPrio(rest,isDone).map(taskHtml).join("")+'</ul></div>':"")+'</div>';
   });
   paint(el,h);growVine(el,"mkt",pct);counts.m=total-done;$("#nMkt").textContent=total-done;updateGreet();setHide(hideDone);
  }
@@ -1404,8 +1411,8 @@ function renderProjects(D){
   '<div class="srcline">Checked: '+esc(D.sources_checked||"")+(D.generated_at?' Updated '+fmtDate(D.generated_at)+'.':'')+((D.skipped||[]).length?' Skipped (not project meetings): '+esc(D.skipped.map(function(s){return typeof s==="string"?s:s.title}).join(", "))+'.':'')+'</div></div>';
  if(!C.length)h+='<div class="card"><p class="note">No project meetings on the calendar for this day.</p></div>';
  C.forEach(function(c){
-  var T=sortOpenThenPrio((c.todos||[]).slice(),function(t){return t.id||""},isDone),open=T.filter(function(t){return !isDone(t)}).length;
-  function tdHtml(t){var d=isDone(t),id=t.id||"";return '<li class="'+(d?'done':'')+uprioCls(id)+'"'+(id?' data-id="'+esc(id)+'"':'')+'><span class="t">'+esc(t.text)+'</span><div class="meta"><span class="chip src">'+esc(SRC[t.src]||t.src||"")+'</span><span class="chip">Owner: '+esc(t.owner||"")+'</span>'+(t.due?'<span class="chip due">Due '+esc(t.due)+'</span>':'')+(d?'<span class="chip okc">Done</span>':'')+'</div>'+(id?metaHtml(id):'')+'</li>'}
+  var T=sortOpenThenTaskPrio((c.todos||[]).slice(),isDone),open=T.filter(function(t){return !isDone(t)}).length;
+  function tdHtml(t){var d=isDone(t),id=t.id||"",pr=taskPrio(t);return '<li class="'+(d?'done':'')+(pr?' uprio-'+pr.toLowerCase():'')+'"'+(id?' data-id="'+esc(id)+'"':'')+'><span class="t">'+esc(t.text)+'</span><div class="meta"><span class="chip src">'+esc(SRC[t.src]||t.src||"")+'</span><span class="chip">Owner: '+esc(t.owner||"")+'</span>'+(t.due?'<span class="chip due">Due '+esc(t.due)+'</span>':'')+(d?'<span class="chip okc">Done</span>':'')+'</div>'+(id?metaHtml(id):'')+'</li>'}
   var first=T.slice(0,6),rest=T.slice(6);
   var W=c.waiting||[];
   h+='<div class="card pjcard'+(c.id===nowId?' now':'')+'" id="pj-'+esc(c.id)+'"><div class="pjhead"><div class="pjtime">'+esc(etTime(c.start))+'<span>to '+esc(etTime(c.end,true))+' ET</span></div><div><h3>'+esc(c.title)+'</h3>'+

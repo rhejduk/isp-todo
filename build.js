@@ -67,9 +67,9 @@ const b64 = (u) => Buffer.from(u).toString("base64");
   const vIdx = Object.fromEntries(dave.tasks.map((t) => [t.task_id, t]));
   const missing = [];
   function resolve(r) {
-    if (r.src === "daily" && dIdx[r.id]) { const t = dIdx[r.id]; return { src: "daily", id: t.task_id, text: t.action, owner: "Rachel", with: t.collaborators || [], due: t.due_date || "", project: t.project, urgent: !!t.urgent, links: (t.links || []).filter((l) => l && l.label && /^https?:\/\//.test(l.url || "")) }; }
-    if (r.src === "marketing" && mIdx[r.id]) { const { t, p } = mIdx[r.id]; return { src: "marketing", id: t.id, text: t.t, owner: t.o || "PMs", with: t.w ? [t.w] : [], due: "", project: p.name, done: !!t.d }; }
-    if (r.src === "dave" && vIdx[r.id]) { const t = vIdx[r.id]; return { src: "dave", id: t.task_id, text: t.action, owner: "Rachel", with: ["Dave"], due: t.due_date || "", project: t.project }; }
+    if (r.src === "daily" && dIdx[r.id]) { const t = dIdx[r.id]; return { src: "daily", id: t.task_id, text: t.action, owner: "Rachel", with: t.collaborators || [], due: t.due_date || "", project: t.project, urgent: !!t.urgent, priority: t.priority || "", links: (t.links || []).filter((l) => l && l.label && /^https?:\/\//.test(l.url || "")) }; }
+    if (r.src === "marketing" && mIdx[r.id]) { const { t, p } = mIdx[r.id]; return { src: "marketing", id: t.id, text: t.t, owner: t.o || "PMs", with: t.w ? [t.w] : [], due: "", project: p.name, done: !!t.d, priority: t.priority || "" }; }
+    if (r.src === "dave" && vIdx[r.id]) { const t = vIdx[r.id]; return { src: "dave", id: t.task_id, text: t.action, owner: "Rachel", with: ["Dave"], due: t.due_date || "", project: t.project, priority: t.priority || "" }; }
     missing.push(r.src + ":" + r.id); return null;
   }
   const pIds = (projects.cards || []).map((c) => c.id);
